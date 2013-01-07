@@ -1,3 +1,4 @@
+#include <ctime>
 #include "OutputHandler.h"
 #include "helpers.h"
 #include <pcl/filters/voxel_grid.h>
@@ -92,7 +93,7 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
   // add a handler for the data packet
   myClient->addHandler("getPCL", &handlePCLdataftr);
   // then request it every cycle of given milliseconds
-  myClient->request("getPCL", 500);
+  myClient->request("getPCL", 2000);
   //myClient->requestOnce("getPCL");
 }
 
@@ -129,7 +130,10 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 {
   pcl::PointXYZRGB point;
 
-  // first get robot location from packet
+  // get time information
+  time_t timeStamp = packet->bufToByte4();
+
+  // get robot location from packet
   // but add offset to translate to global co-ordinates
   point.x = static_cast<float>(packet->bufToDouble()) + myXoffset;
   point.y = static_cast<float>(packet->bufToDouble()) + myYoffset;
