@@ -10,24 +10,33 @@ struct TransformInfo {
   int thetaOffset;
 };
 
+// information about each host which is a server running on a robot
+struct HostInfo {
+  HostInfo(const char *ipa, int loc, int lac, TransformInfo ti, int rf)
+    : ip(ipa), locationColor(loc), laserColor(lac),
+      transformInfo(ti), requestFreq(rf) { }
+  const char *ip;
+  int locationColor;
+  int laserColor;
+  TransformInfo transformInfo;
+  int requestFreq;	// in millisecond
+};
+
 // Performs checking of the custom file type
 class ConfigFileReader {
 public:
   ConfigFileReader(int c, char **v, ArArgumentParser *parser)
     : myArgc(c), myArgv(v), myParser(parser), fileType(-1) { }
-  void printHeaders();
-  void readHostsFile(vector<const char *> &ips,
-                     vector<int> &robotColors,
-                     vector<int> &colors,
-                     vector<TransformInfo> &transforms);
-  const char **stringChunk(const char *start, const char *end,
-      			   char separator, int &n);
+  void readHostsFile(vector<HostInfo> &hostsInfo);
 
   static const char *hostsArg;
-  static const char *hostsFileHeaders[];
-  static const char *hostsFileDescs[];
-  static const char *hostsFileFormats[];
+  static const char *hostsFileHeader;
+  static const char *infoFields[];
+  static const size_t infoFieldTypes;
   static const int hostsFileTypes = 4;
+  static const char myCommentChar = '#';
+  static const char *myFieldSeparator;
+  static const char *mySubFieldSeparator;
 
 private:
   int myArgc;
@@ -36,8 +45,12 @@ private:
   int fileType;
 
   int checkFileArg();
-  ifstream *getFileType();
-  void removeStorage(void *a, int n);
+  ifstream *getFieldTypes(vector<size_t> &fieldTypes);
+  void getValidLine(ifstream &inFile, string &buffer);
+  void getFieldTypeIndices(const string &buffer,
+      			   vector<size_t> &fieldTypes);
+  size_t matchFieldIndex(const char *fieldName);
+  void getIntSubFields(const string &s, vector<int> &subFields);
 };
 
 

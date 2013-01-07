@@ -83,17 +83,18 @@ void OutputHandler::handleSensorInfo(ArNetPacket *packet)
 
 PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
     PCLViewer *viewer, int robotColor,
-    int color, int xo, int yo, int to)
+    int color, int xo, int yo, int to, int rf)
   : OutputHandler(client, viewer, robotColor),
     myLaserCloud(new pcl::PointCloud<pcl::PointXYZRGB>),
     handlePCLdataftr(this, &PCLOutputHandler::handlePCLdata),
     myColor(color),
-    myXoffset(xo), myYoffset(yo), myThetaOffset(to)
+    myXoffset(xo), myYoffset(yo), myThetaOffset(to),
+    myRequestFreq(rf)
 {
   // add a handler for the data packet
   myClient->addHandler("getPCL", &handlePCLdataftr);
   // then request it every cycle of given milliseconds
-  myClient->request("getPCL", 2000);
+  myClient->request("getPCL", myRequestFreq);
   //myClient->requestOnce("getPCL");
 }
 

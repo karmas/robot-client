@@ -60,7 +60,7 @@ private:
 class PCLOutputHandler : public OutputHandler {
 public:
   PCLOutputHandler(ArClientBase *client, PCLViewer *viewer, int robotColor,
-		   int color, int xo, int yo, int to);
+		   int color, int xo, int yo, int to, int rf = 1000);
   ~PCLOutputHandler();
   void handlePCLdata(ArNetPacket *packet);
   void createFile(const char *filename);
@@ -75,6 +75,7 @@ private:
   int myXoffset;
   int myYoffset;
   int myThetaOffset;
+  int myRequestFreq;
 };
 
 

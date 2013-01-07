@@ -92,14 +92,14 @@ const char *createRobotName(const char *IP)
 // Connects to each IP address in hostsIP.
 // The client objects are stored in clients.
 void connectHosts(vector<ArClientBase *> &clients,
-                  const vector<const char *> &hostsIP)
+                  const vector<HostInfo> &hostsInfo)
 {
   ArClientBase *client = NULL;
 
-  for (unsigned int i = 0; i < hostsIP.size(); i++) {
+  for (unsigned int i = 0; i < hostsInfo.size(); i++) {
     client = new ArClientBase;
-    client->setRobotName(createRobotName(hostsIP[i]));
-    if (!client->blockingConnect(hostsIP[i], 7272)) {
+    client->setRobotName(createRobotName(hostsInfo[i].ip));
+    if (!client->blockingConnect(hostsInfo[i].ip, 7272)) {
       echo("unable to connect to", client->getRobotName());
       Aria::shutdown();
       exit(1);
@@ -137,49 +137,17 @@ void createMovementControls(vector<ArClientBase *> &clients,
 void createPCLReceivers(vector<ArClientBase *> &clients,
     			PCLViewer *viewer,
 			vector<PCLOutputHandler *> &pclClients,
-			vector<int> &robotsColor,
-			vector<int> &hostsColor,
-			vector<TransformInfo> &hostsTransforms)
+			vector<HostInfo> &hostsInfo)
 {
   PCLOutputHandler *pclHandler = NULL;
-  int xOffsets[] = { 0, 0, 0 };
-  int yOffsets[] = { 0, 0, 0 };
-  int thetaOffset[] = { 0, 0, 0 };
-  int whiteColor = rgba(255, 255, 255);
 
   for (unsigned int i = 0; i < clients.size(); i++) {
-    // color and transformations and robotcolors
-    if (robotsColor.size() > 0 && hostsColor.size() > 0 && hostsTransforms.size() > 0)
-      pclHandler = new PCLOutputHandler(clients[i], viewer,
-	  robotsColor[i], hostsColor[i], hostsTransforms[i].xOffset,
-	  hostsTransforms[i].yOffset, hostsTransforms[i].thetaOffset);
-    // color and transformations
-    else if (hostsColor.size() > 0 && hostsTransforms.size() > 0)
-      pclHandler = new PCLOutputHandler(clients[i], viewer,
-	  whiteColor, hostsColor[i], hostsTransforms[i].xOffset,
-	  hostsTransforms[i].yOffset, hostsTransforms[i].thetaOffset);
-    // color only
-    else if (hostsColor.size() > 0)
-	pclHandler = new PCLOutputHandler(clients[i], viewer, whiteColor,
-	                 hostsColor[i], xOffsets[i], yOffsets[i],
-			 thetaOffset[i]);
-    // no additional information
-    else {
-      int redColor = rgba(100, 10, 10);
-      int darkRedColor = rgba(200, 10,10);
-      int greenColor = rgba(10, 100, 10);
-      int darkGreenColor = rgba(10, 200, 10);
-
-      if (i == 0)
-	pclHandler = new PCLOutputHandler(clients[i], viewer,
-	                 darkRedColor, redColor,
-			 xOffsets[i], yOffsets[i], thetaOffset[i]);
-      else
-	pclHandler = new PCLOutputHandler(clients[i], viewer,
-	    		 darkGreenColor, greenColor,
-			 xOffsets[i], yOffsets[i], thetaOffset[i]);
-    }
-
+    pclHandler = new PCLOutputHandler(clients[i], viewer,
+		     hostsInfo[i].locationColor,
+		     hostsInfo[i].laserDataColor,
+		     hostsInfo[i].transformInfo.xOffset,
+		     hostsInfo[i].transformInfo.yOffset,
+		     hostsInfo[i].transformInfo.thetaOffset);
     pclClients.push_back(pclHandler);
   }
 }
@@ -401,14 +369,8 @@ void writeCloudToFile(vector<PCLOutputHandler *> &pclClients)
 int main(int argc, char **argv)
 {
   bool joySupport = false;
-  // list of IP addresses of server hosts
-  vector<const char *> hostsIP;
-  // list of colors for each robots location
-  vector<int> robotsColor;
-  // list of colors for each hosts pcl data
-  vector<int> hostsColor;
-  // list of transformation information for pcl data
-  vector<TransformInfo> hostsTransforms;
+  // list of information about each host
+  vector<HostInfo> hostsInfo;
   // list of clients to connect to each server
   vector<ArClientBase *> clients;
   // list of input handler objects for clients
@@ -430,11 +392,10 @@ int main(int argc, char **argv)
   // This class reads the file and populates the necessary lists
   ConfigFileReader configFileReader(argc, argv, &parser);
   // fill the vectors with information from file
-  configFileReader.readHostsFile(hostsIP, robotsColor,
-      				 hostsColor, hostsTransforms);
+  configFileReader.readHostsFile(hostsInfo);
 
   // create a connection to each server
-  connectHosts(clients, hostsIP);
+  connectHosts(clients, hostsInfo);
 
   // create the viewer which will show the point cloud
   PCLViewer viewer("Cloud Viewer c2012 FRCV");
@@ -464,8 +425,7 @@ int main(int argc, char **argv)
   // start all the clients
   startClients(clients);
   // each client will request PCL data
-  createPCLReceivers(clients, &viewer, pclClients, 
-      		     robotsColor, hostsColor, hostsTransforms);
+  createPCLReceivers(clients, &viewer, pclClients, hostsInfo);
 
   // a pointer to one of the clients needed for continuous running
   // of client program

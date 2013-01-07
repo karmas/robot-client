@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <cstdlib>
 using namespace std;
@@ -10,27 +11,24 @@ using namespace std;
 
 // this is the required command line argument
 const char *ConfigFileReader::hostsArg = "-hosts";
-// this are the valid custom file headers
-const char *ConfigFileReader::hostsFileHeaders[] = {
-  "servers 1.0",
-  "servers 1.0 colors",
-  "servers 1.0 transform",
-  "servers 1.0 paths"
+// this header is required as the first valid line
+const char *ConfigFileReader::hostsFileHeader = "servers 1.0";
+// this are the valid fields
+const char *ConfigFileReader::infoFields[] = {
+  "ip",
+  "locationColor",
+  "laserColor",
+  "transformInfo",
+  "requestFreq",
 };
-// this are the valid custom file headers
-const char *ConfigFileReader::hostsFileDescs[] = {
-  "A single line contains only IP address",
-  "also give red,green,blue values for point cloud",
-  "also give x translation, y translation and theta rotation for PCL data",
-  "also give red,green,blue values for robot itself"
-};
-// this are the valid custom file headers
-const char *ConfigFileReader::hostsFileFormats[] = {
-  "10.10.3.113",
-  "10.10.3.113 200,10,10",
-  "10.10.3.113 200,10,10 10,1000,5",
-  "10.10.3.113 200,10,10 10,1000,5 10,200,10",
-};
+// number of information field types
+const size_t ConfigFileReader::infoFieldTypes =
+  sizeof(infoFields) / sizeof(infoFields[0]);
+// separates fields in the file
+const char *ConfigFileReader::myFieldSeparator = " ";
+// separates sub fields in the file
+const char *ConfigFileReader::mySubFieldSeparator = ",";
+
 
 // check if argument option is given in command line
 // and returns the command line index of the filename
@@ -53,165 +51,172 @@ int ConfigFileReader::checkFileArg()
   return fileIndex;
 }
 
-// Figures out the file type by reading the first line.
-// If it finds match, it returns file stream pointer and
-// sets fileType member
-ifstream *ConfigFileReader::getFileType()
+// return index for given field name from infoFields array
+size_t ConfigFileReader::matchFieldIndex(const char *fieldName)
 {
-  const int BUFFER_LEN = 50;
-  char buffer[BUFFER_LEN];
+  // check each specified field name for a match
+  for (size_t i = 0; i < infoFieldTypes; i++)
+    if (strcmp(fieldName, infoFields[i]) == 0)
+      return static_cast<size_t>(i);
+  echo("invalid field name", fieldName);
+  errorExit("");
+  return 100; // will not reach because of exit above;
+}
+
+// Checks the buffer for valid words and stores the indices of those field
+// names in the fieldTypes array
+void ConfigFileReader::getFieldTypeIndices(const string &buffer,
+    vector<size_t> &fieldTypes)
+{
+  char *temp = strdup(buffer.c_str());
+  char *tok = strtok(temp, myFieldSeparator);
+  int i = 0;
+
+  do {
+    i = matchFieldIndex(tok);
+    fieldTypes.push_back(i);
+  }
+  while ((tok = strtok(NULL, myFieldSeparator))); 
+  free(temp);
+}
+
+// Checks what information is supplied in the file
+// and returns an array with indicies for information type.
+// Hence the information can be in any order.
+ifstream *ConfigFileReader::getFieldTypes(vector<size_t> &fieldTypes)
+{
+  string buffer;
 
   // filename is in this index of myArgv
   int fileIndex = checkFileArg();
 
-  // open file and get file type
+  // check for existence of file
   ifstream *file = new ifstream(myArgv[fileIndex], ifstream::in);
   if (file->fail()) errorExit("NO SUCH FILE");
-  file->getline(buffer, BUFFER_LEN);
 
-  for (int i = 0; i < hostsFileTypes; i++) {
-    if (strcmp(buffer, hostsFileHeaders[i]) == 0) {
-      fileType = i;
-      return file;
-    }
+  // check for header line
+  getValidLine(*file, buffer);
+  // invalid header so cleanup
+  if (strcmp(buffer.c_str(), hostsFileHeader) != 0) {
+    file->close();
+    delete file;
+    errorExit("VALID HEADER NOT FOUND!!! ");
+    return NULL;	// never reached due to exit above
   }
 
-  file->close();
-  delete file;
+  // next valid line should hold names of info types
+  getValidLine(*file, buffer);
+  getFieldTypeIndices(buffer, fieldTypes);
 
-  printHeaders();
-  errorExit("VALID HEADER NOT FOUND!!! ");
-  return NULL;	// never reached
+  return file;
 }
 
-// display the proper headers
-void ConfigFileReader::printHeaders()
+// fill buffer with the next line in stream which is not a comment
+void ConfigFileReader::getValidLine(ifstream &inFile, string &buffer) 
 {
-  echo("VALID HEADERS:");
-  for (int i = 0; i < hostsFileTypes; i++) {
-    echo(hostsFileHeaders[i]);
-    cout << "\t\t" << hostsFileDescs[i] << endl;
-    cout << "\t\te.g: " << hostsFileFormats[i] << endl;
-  }
-  cout << endl;
+  while (getline(inFile,buffer) && buffer[0] == myCommentChar);
 }
 
-// Given a starting and ending point, it fills chunks with addresses
-// of clones of fields separated by given separator and returns number
-// of fields found.
-const char **ConfigFileReader::stringChunk(const char *start,
-    const char *end, char separator, int &n)
+// get a list of sub fields as integer types from a single string 
+// containing sub fields separated by a selected sub field separator
+void ConfigFileReader::getIntSubFields(const string &s, 
+    vector<int> &subFields)
 {
-  // maybe the whole section is a single field
-  const char *fieldStart = start;
-  const char *fieldEnd = end;
-  const char **chunks = NULL;
+  char *temp = strdup(s.c_str());
+  char *currSubField = strtok(temp, mySubFieldSeparator);
 
-  while( (fieldEnd=strchr(fieldStart, separator)) != NULL  && fieldEnd < end) {
-    // create clone
-    chunks = (const char **)realloc(chunks, n*sizeof(char *));
-    chunks[n-1] = strndup(fieldStart, fieldEnd - fieldStart);
+  do {
+    subFields.push_back(atoi(currSubField));
+  } while ((currSubField = strtok(NULL, mySubFieldSeparator)));
 
-    fieldStart = fieldEnd + 1;
-    n++;
-  }
-
-  // last field or only field
-  // no equivalent of realloc in C++
-  chunks = (const char **)realloc(chunks, n*sizeof(char *));
-  chunks[n-1] = strndup(fieldStart, end - fieldStart);
-
-  return chunks;
-}
-
-// a is a pointer to an array of pointers
-void ConfigFileReader::removeStorage(void *a, int n)
-{
-  char **base = (char **)a;
-  for (int i = 0; i < n; i++)
-    free(base[i]);	// free individual pointers
-  free(base);		// and the whole array
+  free(temp);
 }
 
 // reads files of type : servers 1.0
-void ConfigFileReader::readHostsFile(vector<const char *> &ips,
-    vector<int> &robotColors, vector<int> &colors,
-    vector<TransformInfo> &transforms)
+void ConfigFileReader::readHostsFile(vector<HostInfo> &hostsInfo)
 {
-  const int BUFFER_LEN = 70;
-  char buffer[BUFFER_LEN];
-  const char *sectionStart = NULL;
-  const char *sectionEnd = NULL;
-  const char SECTION_SEPARATOR = ' ';
-  const char FIELD_SEPARATOR = ',';
-  int fields = 1;	// there is at least one field
-  const char **chunks = NULL; // clones of the fields will be stored here
+  // store current host info
+  HostInfo currHostInfo(NULL, 0, 0, TransformInfo(0,0,0), 0);
 
-  // first set file type
-  ifstream *file = getFileType();
+  string line;
+  string field;
+  vector<int> subFields;
+  int fieldIndex;
+  istringstream lineStream;
 
-  // process each line
+  // get array with section information
+  vector<size_t> fieldTypes;
+  ifstream *file = getFieldTypes(fieldTypes);
+
+  // process each line according to the field type information
   while (file->good()) {
-    // first get line
-    file->getline(buffer, BUFFER_LEN);
+    // refresh host info to default
+    currHostInfo = HostInfo(NULL,	// ip address
+			    rgba(200,0,0),// location color
+			    rgba(0,200,0),// laser data color
+			    TransformInfo(0,0,0),
+			    1000);	// request frequency in millisec
+    // get a single line
+    getValidLine(*file, line);
     if (file->fail() || file->eof()) break;
 
-    // extract IP
-    sectionStart = buffer;
-    if (fileType > 0) sectionEnd = strchr(sectionStart, SECTION_SEPARATOR);
-    else sectionEnd = sectionStart + strlen(sectionStart);
-    fields = 1;
-    chunks = stringChunk(sectionStart, sectionEnd, FIELD_SEPARATOR, fields);
-    // add to ip address list
-    ips.push_back(chunks[0]);
-    // free the storage for the array but not the fields which hold
-    // addresses to strings
-    free(chunks);
+    // set the stream
+    lineStream.clear();
+    lineStream.str(line);
 
-    if (fileType < 1) continue;
+    // extract fields according to given format
+    for (size_t i = 0; i < fieldTypes.size(); i++) {
+      // clear the sub fields array
+      subFields.clear();
+      // first set field type index
+      fieldIndex = fieldTypes[i];
+      // get the field from the string
+      lineStream >> field;
 
-    // extract colors
-    sectionStart = sectionEnd + 1;
-    if (fileType > 1) sectionEnd = strchr(sectionStart, SECTION_SEPARATOR);
-    else sectionEnd = sectionStart + strlen(sectionStart);
-    fields = 1;
-    chunks = stringChunk(sectionStart, sectionEnd, FIELD_SEPARATOR, fields);
-    // store in colors list
-    colors.push_back(rgba(atoi(chunks[0]),
-	                  atoi(chunks[1]),
-			  atoi(chunks[2])));
-    // free chunks which is no longer needed
-    removeStorage(chunks, fields);
+      // extract from the field according to field type
+      switch (fieldIndex) {
+	case 0:		// ip address
+	  currHostInfo.ip = strdup(field.c_str());
+	  break;
+	case 1:		// location color
+	  getIntSubFields(field, subFields);
+	  currHostInfo.locationColor = 
+	    rgba(subFields[0], subFields[1], subFields[2]);
+	  break;
+	case 2:		// laser data color
+	  getIntSubFields(field, subFields);
+	  currHostInfo.laserColor = 
+	    rgba(subFields[0], subFields[1], subFields[2]);
+	  break;
+	case 3:		// transformation info
+	  getIntSubFields(field, subFields);
+	  currHostInfo.transformInfo = 
+	    TransformInfo(subFields[0], subFields[1], subFields[2]);
+	  break;
+	case 4:		// request frequency in milliseconds
+	  currHostInfo.requestFreq = atoi(field.c_str());
+	  break;
+	default:
+	  break;
+      }
+    }
 
-    if (fileType < 2) continue;
+    // debugging to see if host information was extracted from file
+#define debug
+#ifdef debug
+    echo("ip address", currHostInfo.ip);
+    echo("location color", currHostInfo.locationColor);
+    echo("laser color", currHostInfo.laserColor);
+    echo("x offset", currHostInfo.transformInfo.xOffset);
+    echo("y offset", currHostInfo.transformInfo.yOffset);
+    echo("theta offset", currHostInfo.transformInfo.thetaOffset);
+    echo("request frequency", currHostInfo.requestFreq);
+    cout << endl;
+#endif
 
-    // extract transformations
-    sectionStart = sectionEnd + 1;
-    if (fileType > 2) sectionEnd = strchr(sectionStart, SECTION_SEPARATOR);
-    else sectionEnd = sectionStart + strlen(sectionStart);
-    fields = 1;
-    chunks = stringChunk(sectionStart, sectionEnd, FIELD_SEPARATOR, fields);
-    // store in transformations list
-    transforms.push_back(TransformInfo(atoi(chunks[0]),
-	                               atoi(chunks[1]), 
-				       atoi(chunks[2])));
-    // free chunks which is no longer needed
-    removeStorage(chunks, fields);
-
-    if (fileType < 3) continue;
-
-    // extract robot colors
-    sectionStart = sectionEnd + 1;
-    if (fileType > 3) sectionEnd = strchr(sectionStart, SECTION_SEPARATOR);
-    else sectionEnd = sectionStart + strlen(sectionStart);
-    fields = 1;
-    chunks = stringChunk(sectionStart, sectionEnd, FIELD_SEPARATOR, fields);
-    // store in colors list
-    robotColors.push_back(rgba(atoi(chunks[0]),
-	                       atoi(chunks[1]),
-			       atoi(chunks[2])));
-    // free chunks which is no longer needed
-    removeStorage(chunks, fields);
+    // add current host information to the list of hosts
+    // fields not set will get default values
+    hostsInfo.push_back(currHostInfo);
   }
 
   file->close();
