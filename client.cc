@@ -144,10 +144,11 @@ void createPCLReceivers(vector<ArClientBase *> &clients,
   for (unsigned int i = 0; i < clients.size(); i++) {
     pclHandler = new PCLOutputHandler(clients[i], viewer,
 		     hostsInfo[i].locationColor,
-		     hostsInfo[i].laserDataColor,
+		     hostsInfo[i].laserColor,
 		     hostsInfo[i].transformInfo.xOffset,
 		     hostsInfo[i].transformInfo.yOffset,
-		     hostsInfo[i].transformInfo.thetaOffset);
+		     hostsInfo[i].transformInfo.thetaOffset,
+		     hostsInfo[i].requestFreq);
     pclClients.push_back(pclHandler);
   }
 }

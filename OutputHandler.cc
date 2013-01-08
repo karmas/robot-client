@@ -132,7 +132,7 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   pcl::PointXYZRGB point;
 
   // get time information
-  time_t timeStamp = packet->bufToByte4();
+  long timeStamp = packet->bufToByte4();
 
   // get robot location from packet
   // but add offset to translate to global co-ordinates
@@ -140,7 +140,10 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   point.y = static_cast<float>(packet->bufToDouble()) + myYoffset;
   point.z = 0.0;
   point.rgba = myRobotColor;
-  
+
+  // get robot heading
+  double th = packet->bufToDouble();
+
   myRobotCloud->push_back(point);
   myViewer->addCloud(myRobotCloud, myClient->getHost() + string("robot"));
 
