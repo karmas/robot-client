@@ -4,6 +4,13 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 
+
+TimeStampedPCL::TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
+			       long ts)
+  : cloud(c), timeStamp(ts) { }
+
+
+
 OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
     			     int robotColor)
   : myClient(client), myViewer(viewer),
@@ -46,7 +53,7 @@ void OutputHandler::handleUpdateInfo(ArNetPacket *packet)
   packet->bufToByte2();
   int xPosition = (double)packet->bufToByte4();
   int yPosition = (double)packet->bufToByte4();
-  int theta = (double)packet->bufToByte2();
+  //int theta = (double)packet->bufToByte2();
 
   pcl::PointXYZRGB point;
   point.x = static_cast<float>(xPosition);
@@ -130,6 +137,9 @@ void statsDisplay(const char *robotName, ArNetPacket *packet)
 void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 {
   pcl::PointXYZRGB point;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
+    tempLaserCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+  TimeStampedPCL *tempLaserTS = NULL;
 
   // get time information
   long timeStamp = packet->bufToByte4();
@@ -144,8 +154,8 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   // get robot heading
   double th = packet->bufToDouble();
 
-  myRobotCloud->push_back(point);
-  myViewer->addCloud(myRobotCloud, myClient->getHost() + string("robot"));
+  //myRobotCloud->push_back(point);
+  //myViewer->addCloud(myRobotCloud, myClient->getHost() + string("robot"));
 
   // get number of points
   int nPoints = packet->bufToByte4();
@@ -158,10 +168,21 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
     point.z = static_cast<float>(packet->bufToDouble());
     point.rgba = myColor; 
 
-    myLaserCloud->push_back(point);
+    tempLaserCloud->push_back(point);
+    //myLaserCloud->push_back(point);
   }
 
-  myViewer->addCloud(myLaserCloud, myClient->getHost() + string("laser"));
+  // create time stamped aggregate class and store the cloud
+  // then store in the list
+  tempLaserTS = new TimeStampedPCL(tempLaserCloud, timeStamp);
+  myLaserClouds.push_back(tempLaserTS);
+
+  // display it as well
+  //myViewer->addCloud(tempLaserCloud, myClient->getHost() + string("laser"));
+  ostringstream os;
+  os << timeStamp;
+  myViewer->addCloud(tempLaserCloud, os.str());
+
   //statsDisplay(myClient->getRobotName(), packet);
   //myClient->logTracking(true);
 }
@@ -207,4 +228,11 @@ void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
   if (myViewer.wasStopped()) return;
 
   myViewer.showCloud(cloud, name);
+}
+
+void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+{
+  if (myViewer.wasStopped()) return;
+
+  myViewer.showCloud(cloud);
 }

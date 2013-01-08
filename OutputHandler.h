@@ -8,6 +8,22 @@
 #include "pcl/point_types.h"
 #include "pcl/point_cloud.h"
 #include <pcl/visualization/cloud_viewer.h>
+#include <vector>
+
+// a time stamped point cloud
+class TimeStampedPCL {
+public:
+  TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
+                 long ts);
+private:
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+  long timeStamp;
+
+  // make copying illegal
+  TimeStampedPCL(const TimeStampedPCL &) {}
+  TimeStampedPCL &operator=(const TimeStampedPCL &) {}
+};
+
 
 
 // This class is responsible for displaying point clouds on a viewer
@@ -17,6 +33,7 @@ public:
   ~PCLViewer() {}
   void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
       		const std::string& name);
+  void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud);
 
 private:
   PCLViewer(const PCLViewer&);
@@ -69,6 +86,7 @@ public:
   }
 
 private:
+  std::vector<TimeStampedPCL *> myLaserClouds;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr myLaserCloud;
   ArFunctor1C<PCLOutputHandler, ArNetPacket *> handlePCLdataftr;
   int myColor;
