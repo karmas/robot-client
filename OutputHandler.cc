@@ -105,9 +105,13 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
   //myClient->requestOnce("getPCL");
 }
 
+// Free up memory and stop data request cycle
 PCLOutputHandler::~PCLOutputHandler()
 {
   myClient->requestStop("getPCL");
+
+  for (size_t i = 0; i < myLaserClouds.size(); i++)
+    delete myLaserClouds[i];
 }
 
 // function that shows statistical data from the robots
@@ -139,7 +143,6 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   pcl::PointXYZRGB point;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
     tempLaserCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-  TimeStampedPCL *tempLaserTS = NULL;
 
   // get time information
   long timeStamp = packet->bufToByte4();
@@ -154,8 +157,8 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   // get robot heading
   double th = packet->bufToDouble();
 
-  //myRobotCloud->push_back(point);
-  //myViewer->addCloud(myRobotCloud, myClient->getHost() + string("robot"));
+  myRobotCloud->push_back(point);
+  myViewer->addCloud(myRobotCloud, myClient->getHost() + string("robot"));
 
   // get number of points
   int nPoints = packet->bufToByte4();
@@ -169,19 +172,16 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
     point.rgba = myColor; 
 
     tempLaserCloud->push_back(point);
-    //myLaserCloud->push_back(point);
+    // also add point in aggregate cloud which is used by viewer
+    myLaserCloud->push_back(point);
   }
 
-  // create time stamped aggregate class and store the cloud
-  // then store in the list
-  tempLaserTS = new TimeStampedPCL(tempLaserCloud, timeStamp);
-  myLaserClouds.push_back(tempLaserTS);
+  // create time stamped cloud and store it in list
+  myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
 
-  // display it as well
-  //myViewer->addCloud(tempLaserCloud, myClient->getHost() + string("laser"));
-  ostringstream os;
-  os << timeStamp;
-  myViewer->addCloud(tempLaserCloud, os.str());
+  // Display the laser points using the aggregate cloud not the list
+  // because the viewer refreshes each time a cloud is added.
+  myViewer->addCloud(myLaserCloud, myClient->getHost() + string("laser"));
 
   //statsDisplay(myClient->getRobotName(), packet);
   //myClient->logTracking(true);
@@ -214,6 +214,24 @@ void PCLOutputHandler::createFile(const char *filename)
   }
 }
 
+// only used for debugging
+void PCLOutputHandler::printClouds()
+{
+  echo("printing all clouds");
+  TimeStampedPCL *curr = NULL;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+
+  for (size_t i = 0; i < myLaserClouds.size() && i < 2; i++) {
+    curr = myLaserClouds[i];
+    cout << "\tcloud " << i << endl;
+
+    cloud = curr->getCloud();
+    for (size_t j = 0; j < 10; j++) {
+      cout << "point " << j << ": ";
+      cout << (*cloud)[j].x << endl;
+    }
+  }
+}
 
 
 
@@ -235,4 +253,19 @@ void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
   if (myViewer.wasStopped()) return;
 
   myViewer.showCloud(cloud);
+}
+
+// Adds cloud in the time stamped cloud.
+// Since adding a cloud refreshes the viewer, it is better to use
+// addCloud directly on an aggregate cloud then to call this function
+// for every new time stamped cloud.
+void PCLViewer::addTimeStampedCloud(TimeStampedPCL *tsCloud)
+{
+  if (myViewer.wasStopped()) return;
+  
+  // create an string id
+  ostringstream os;
+  os << tsCloud->getTimeStamp();
+
+  addCloud(tsCloud->getCloud(), os.str());
 }

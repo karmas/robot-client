@@ -15,13 +15,16 @@ class TimeStampedPCL {
 public:
   TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
                  long ts);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr getCloud() { return cloud; }
+  long getTimeStamp() { return timeStamp; }
+
 private:
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
   long timeStamp;
 
   // make copying illegal
   TimeStampedPCL(const TimeStampedPCL &) {}
-  TimeStampedPCL &operator=(const TimeStampedPCL &) {}
+  TimeStampedPCL &operator=(const TimeStampedPCL &) { return *this; }
 };
 
 
@@ -34,6 +37,7 @@ public:
   void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
       		const std::string& name);
   void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud);
+  void addTimeStampedCloud(TimeStampedPCL *tsCloud);
 
 private:
   PCLViewer(const PCLViewer&);
@@ -81,12 +85,20 @@ public:
   ~PCLOutputHandler();
   void handlePCLdata(ArNetPacket *packet);
   void createFile(const char *filename);
+  std::vector<TimeStampedPCL *> *getLaserClouds() {
+    return &myLaserClouds;
+  }
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr getLaserCloud() {
     return myLaserCloud;
   }
+  void printClouds();
 
 private:
   std::vector<TimeStampedPCL *> myLaserClouds;
+  // This cloud is an aggregate of all points in the list.
+  // CloudViewer is refreshed each time a new cloud is added to it.
+  // If we added each new cloud to the viewer, it would keep refreshing.
+  // To remedy this, a separate cloud is needed to store all the points.
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr myLaserCloud;
   ArFunctor1C<PCLOutputHandler, ArNetPacket *> handlePCLdataftr;
   int myColor;
@@ -94,6 +106,7 @@ private:
   int myYoffset;
   int myThetaOffset;
   int myRequestFreq;
+
 };
 
 
