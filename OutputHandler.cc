@@ -33,11 +33,14 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
   */
 }
 
+// free up some memory
 OutputHandler::~OutputHandler()
 {
   /*
   myClient->requestStop("update");
   */
+  for (size_t i = 0; i < myRobotInfos.size(); i++)
+    delete myRobotInfos[i];
 }
 
 // This function displays some positional information on the robot.
@@ -156,6 +159,9 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 
   // get robot heading
   double th = packet->bufToDouble();
+
+  // store the robot position when the scan is taken
+  myRobotInfos.push_back(new RobotInfo(point, timeStamp, th));
 
   myRobotCloud->push_back(point);
   myViewer->addCloud(myRobotCloud, myClient->getHost() + string("robot"));

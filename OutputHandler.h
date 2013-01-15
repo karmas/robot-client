@@ -10,6 +10,15 @@
 #include <pcl/visualization/cloud_viewer.h>
 #include <vector>
 
+// group robot position, heading and timestamp
+struct RobotInfo {
+  RobotInfo(const pcl::PointXYZRGB &pt, long ts, double h)
+    : point(pt), timeStamp(ts), th(h) { }
+  pcl::PointXYZRGB point;
+  long timeStamp;
+  double th;	// heading in degrees
+};
+
 // a time stamped point cloud
 class TimeStampedPCL {
 public:
@@ -63,6 +72,7 @@ public:
   ArClientBase *getClient() { return myClient; }
 
 protected:
+  std::vector<RobotInfo *> myRobotInfos;
   ArClientBase *myClient;
   PCLViewer *myViewer;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr myRobotCloud;
