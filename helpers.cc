@@ -12,10 +12,16 @@ void echo(const string &id, const int value)
   cout << "\t" << id << " = " << value << endl;
 }
 
+void echo(const string &id, const double value)
+{
+  cout << "\t" << id << " = " << value << endl;
+}
+
 void echo(const string &id, const string &value)
 {
   cout << "\t" << id << " = " << value << endl;
 }
+
 
 void errorExit(string msg)
 {

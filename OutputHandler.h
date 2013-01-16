@@ -1,14 +1,22 @@
 #ifndef OUTPUT_HANDLER_H
 #define OUTPUT_HANDLER_H
 
+#include <vector>
+
 #include "ArNetworking.h"
+
 #include "pcl/io/io.h"
 #include "pcl/io/file_io.h"
 #include "pcl/io/pcd_io.h"
 #include "pcl/point_types.h"
 #include "pcl/point_cloud.h"
 #include <pcl/visualization/cloud_viewer.h>
-#include <vector>
+#include <pcl/filters/voxel_grid.h>
+
+// just to aggregate data
+struct MyPoint {
+  float x, y, z;
+};
 
 // group robot position, heading and timestamp
 struct RobotInfo {
@@ -77,6 +85,7 @@ protected:
   PCLViewer *myViewer;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr myRobotCloud;
   int myRobotColor;
+  MyPoint myVoxelLeaf;
 
 private:
   ArFunctor1C<OutputHandler, ArNetPacket *> handleUpdateInfoftr;
@@ -102,6 +111,9 @@ public:
     return myLaserCloud;
   }
   void printClouds();
+  void setMinMax(const pcl::PointXYZRGB &point);
+  double calcAvgDensity();
+  void voxelFilter();
 
 private:
   std::vector<TimeStampedPCL *> myLaserClouds;
@@ -116,9 +128,15 @@ private:
   int myYoffset;
   int myThetaOffset;
   int myRequestFreq;
-
+  MyPoint myMinVals;
+  MyPoint myMaxVals;
 };
 
 
+// Some helpful functions
+
+double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
+    			 const MyPoint &minVal, const MyPoint &maxVal,
+			 const std::string &units);
 
 #endif

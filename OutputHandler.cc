@@ -1,4 +1,5 @@
 #include <ctime>
+#include <cmath>
 #include "OutputHandler.h"
 #include "helpers.h"
 #include <pcl/filters/voxel_grid.h>
@@ -31,6 +32,9 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
   myClient->addHandler("getSensorCurrent", &handleSensorInfoftr);
   myClient->request("getSensorCurrent", 2000, &packet);
   */
+
+  // set the voxel leaf to 1 mm
+  myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 0.001f;
 }
 
 // free up some memory
@@ -177,6 +181,7 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
     point.z = static_cast<float>(packet->bufToDouble());
     point.rgba = myColor; 
 
+    setMinMax(point);
     tempLaserCloud->push_back(point);
     // also add point in aggregate cloud which is used by viewer
     myLaserCloud->push_back(point);
@@ -185,12 +190,16 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   // create time stamped cloud and store it in list
   myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
 
+  voxelFilter();
+
   // Display the laser points using the aggregate cloud not the list
   // because the viewer refreshes each time a cloud is added.
   myViewer->addCloud(myLaserCloud, myClient->getHost() + string("laser"));
 
   //statsDisplay(myClient->getRobotName(), packet);
   //myClient->logTracking(true);
+
+  //cout << "DENSITY " << calcAvgDensity() << endl;
 }
 
 // Writes current PCL cloud to a file in the following format
@@ -239,6 +248,87 @@ void PCLOutputHandler::printClouds()
   }
 }
 
+// set min and max values if possible
+void PCLOutputHandler::setMinMax(const pcl::PointXYZRGB &point)
+{
+  static bool firstTime = true;
+
+  // the first ever point is used to initialize the min and max values
+  if (firstTime) {
+    firstTime = false;
+    myMinVals.x = myMaxVals.x = point.x;
+    myMinVals.y = myMaxVals.y = point.y;
+    myMinVals.z = myMaxVals.z = point.z;
+    return;
+  }
+
+  if (point.x < myMinVals.x) myMinVals.x = point.x;
+  else if (point.x > myMaxVals.x) myMaxVals.x = point.x;
+  if (point.y < myMinVals.y) myMinVals.y = point.y;
+  else if (point.y > myMaxVals.y) myMaxVals.y = point.y;
+  if (point.z < myMinVals.z) myMinVals.z = point.z;
+  else if (point.z > myMaxVals.z) myMaxVals.z = point.z;
+}
+
+// Calculate the point density which is the number of points
+// in a selected volume. The default units for the laser is mm.
+// Hence the values have to be scaled to desired units.
+double PCLOutputHandler::calcAvgDensity()
+{
+  // this is mm to decimeter (10cm);
+  const int factor = 100;
+  const string units = "dm";
+  double l, b, h, v;
+
+  // range of x values
+  if ((myMinVals.x >= 0.0 && myMaxVals.x >= 0.0) ||
+      (myMinVals.x <= 0.0 && myMaxVals.x <= 0.0))
+    l = fabs(fabs(myMaxVals.x) - fabs(myMinVals.x));
+  else
+    l = fabs(myMaxVals.x) + fabs(myMinVals.x);
+  // range of y values
+  if ((myMinVals.y >= 0.0 && myMaxVals.y >= 0.0) ||
+      (myMinVals.y <= 0.0 && myMaxVals.y <= 0.0))
+    b = fabs(fabs(myMaxVals.y) - fabs(myMinVals.y));
+  else
+    b = fabs(myMaxVals.y) + fabs(myMinVals.y);
+  // range of z values
+  if ((myMinVals.z >= 0.0 && myMaxVals.z >= 0.0) ||
+      (myMinVals.z <= 0.0 && myMaxVals.z <= 0.0))
+    h = fabs(fabs(myMaxVals.z) - fabs(myMinVals.z));
+  else
+    h = fabs(myMaxVals.z) + fabs(myMinVals.z);
+
+  // scale the measurements to desired units
+  l = l/factor;
+  b = b/factor;
+  h = h/factor;
+
+  // calculate density
+  v = l * b * h;
+  //cout << "\tchosen units " << units << endl;
+  //cout << "L " << l << "  ";
+  //cout << "B " << b << "  ";
+  //cout << "H " << h << "  ";
+  //cout << "VOL " << v << "  ";
+
+  calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, units);
+
+  return myLaserCloud->size() / v;
+}
+
+// apply the voxel filter using the instance's leaf settings
+void PCLOutputHandler::voxelFilter()
+{
+  static pcl::VoxelGrid<pcl::PointXYZRGB> voxelGrid;
+  voxelGrid.setLeafSize(myVoxelLeaf.x, myVoxelLeaf.y, myVoxelLeaf.z);
+
+  // downsample the laser cloud used for display
+  //myVoxelGrid.setInputCloud(myLaserCloud);
+  cout << "before " << myLaserCloud->size() << endl;
+  //myVoxelGrid.filter(*myLaserCloud);
+  cout << "after " << myLaserCloud->size() << endl;
+}
 
 
 PCLViewer::PCLViewer(const std::string& title)
@@ -274,4 +364,26 @@ void PCLViewer::addTimeStampedCloud(TimeStampedPCL *tsCloud)
   os << tsCloud->getTimeStamp();
 
   addCloud(tsCloud->getCloud(), os.str());
+}
+
+
+// Return average density in given region of a point cloud.
+// MinVal holds the minimum values for the co-ordinates and maxVal
+// holds the maximum values. These two points represent the furthest
+// points in a cuboid region of space.
+// The units parameter is checked against a number of possibilites.
+double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
+    			 const MyPoint &minVal, const MyPoint &maxVal,
+			 const std::string &units)
+{
+  pcl::PointCloud<pcl::PointXYZRGB>::const_iterator it;
+  int nPoints = 0;
+
+  // Get number of points in selected region
+  for (it = cloud->begin(); it != cloud->end(); it++) {
+  }
+
+  double volume = 1.0;
+
+  return nPoints/volume;
 }

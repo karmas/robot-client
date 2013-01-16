@@ -22,4 +22,4 @@ clean:
 	rm -f *.o a.out $(PROG) tags
 
 tags: $(SRC)
-	ctags $(SRC)
+	ctags $(SRC) $(HDR)
