@@ -34,9 +34,13 @@ const char *ConfigFileReader::mySubFieldSeparator = ",";
 // and returns the command line index of the filename
 int ConfigFileReader::checkFileArg()
 {
+  string errorMsg("PROVIDE CONFIGURATION FILE USING ARGUMENT\n\t");
+  errorMsg += "-hosts 'filename'";
+
   int fileIndex = -1;
-  if (!myParser->checkArgument(hostsArg))
-    errorExit("use : -hosts 'filename'");
+  if (!myParser->checkArgument(hostsArg)) {
+    errorExit(errorMsg);
+  }
 
   for (int i = 1; i < myArgc; i++) {
     if (strcmp(hostsArg, myArgv[i]) == 0) {
@@ -46,7 +50,7 @@ int ConfigFileReader::checkFileArg()
   }
 
   if (fileIndex == -1 || fileIndex >= myArgc)
-    errorExit("use : -hosts 'filename'");
+    errorExit(errorMsg);
   
   return fileIndex;
 }
@@ -59,6 +63,7 @@ size_t ConfigFileReader::matchFieldIndex(const char *fieldName)
     if (strcmp(fieldName, infoFields[i]) == 0)
       return static_cast<size_t>(i);
   echo("invalid field name", fieldName);
+  printInfoFields();
   errorExit("");
   return 100; // will not reach because of exit above;
 }
@@ -100,7 +105,9 @@ ifstream *ConfigFileReader::getFieldTypes(vector<size_t> &fieldTypes)
   if (strcmp(buffer.c_str(), hostsFileHeader) != 0) {
     file->close();
     delete file;
-    errorExit("VALID HEADER NOT FOUND!!! ");
+    string errorMsg = "REQUIRED HEADER GIVEN BELOW NOT FOUND!!!\n\t";
+    errorMsg += hostsFileHeader;
+    errorExit(errorMsg);
     return NULL;	// never reached due to exit above
   }
 
@@ -221,4 +228,15 @@ void ConfigFileReader::readHostsFile(vector<HostInfo> &hostsInfo)
 
   file->close();
   delete file;
+}
+
+// display the valid info fields in configuration file
+void ConfigFileReader::printInfoFields()
+{
+  cout << endl;
+  echo("VALID FIELDS ARE:");
+
+  for (int i = 0; i < 4; i++) {
+    echo(infoFields[i]);
+  }
 }

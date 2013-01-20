@@ -33,8 +33,9 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
   myClient->request("getSensorCurrent", 2000, &packet);
   */
 
-  // set the voxel leaf to 1 mm
-  myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 0.001f;
+  // set the voxel leaf to 1 cm
+  // note: the clouds are storing in mm
+  myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 10.0f;
 }
 
 // free up some memory
@@ -190,7 +191,7 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   // create time stamped cloud and store it in list
   myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
 
-  voxelFilter();
+  myLaserCloud = voxelFilter(myLaserCloud, myVoxelLeaf);
 
   // Display the laser points using the aggregate cloud not the list
   // because the viewer refreshes each time a cloud is added.
@@ -200,6 +201,7 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   //myClient->logTracking(true);
 
   //cout << "DENSITY " << calcAvgDensity() << endl;
+  //calcAvgDensity();
 }
 
 // Writes current PCL cloud to a file in the following format
@@ -317,18 +319,6 @@ double PCLOutputHandler::calcAvgDensity()
   return myLaserCloud->size() / v;
 }
 
-// apply the voxel filter using the instance's leaf settings
-void PCLOutputHandler::voxelFilter()
-{
-  static pcl::VoxelGrid<pcl::PointXYZRGB> voxelGrid;
-  voxelGrid.setLeafSize(myVoxelLeaf.x, myVoxelLeaf.y, myVoxelLeaf.z);
-
-  // downsample the laser cloud used for display
-  //myVoxelGrid.setInputCloud(myLaserCloud);
-  cout << "before " << myLaserCloud->size() << endl;
-  //myVoxelGrid.filter(*myLaserCloud);
-  cout << "after " << myLaserCloud->size() << endl;
-}
 
 
 PCLViewer::PCLViewer(const std::string& title)
@@ -376,14 +366,27 @@ double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
     			 const MyPoint &minVal, const MyPoint &maxVal,
 			 const std::string &units)
 {
-  pcl::PointCloud<pcl::PointXYZRGB>::const_iterator it;
-  int nPoints = 0;
 
-  // Get number of points in selected region
-  for (it = cloud->begin(); it != cloud->end(); it++) {
-  }
+  cout << "cloud size: " << cloud->size() << endl;
 
-  double volume = 1.0;
+  return 0.0;
+}
 
-  return nPoints/volume;
+// Perform voxel filter and return filtered cloud
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr
+voxelFilter(pcl::PointCloud<pcl::PointXYZRGB>::Ptr source,
+    	    const MyPoint &leafSize)
+{
+  // this object performs the filtering
+  pcl::VoxelGrid<pcl::PointXYZRGB> voxelGrid;
+  voxelGrid.setLeafSize(leafSize.x, leafSize.y, leafSize.z);
+
+  // filtered cloud is stored here
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
+    filteredCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+  // filter and set to the filtered cloud
+  voxelGrid.setInputCloud(source);
+  voxelGrid.filter(*filteredCloud);
+  return filteredCloud;
 }

@@ -28,6 +28,7 @@ public:
   ConfigFileReader(int c, char **v, ArArgumentParser *parser)
     : myArgc(c), myArgv(v), myParser(parser), fileType(-1) { }
   void readHostsFile(vector<HostInfo> &hostsInfo);
+  static void printInfoFields();
 
   static const char *hostsArg;
   static const char *hostsFileHeader;
