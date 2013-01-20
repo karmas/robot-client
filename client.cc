@@ -67,10 +67,8 @@
 using namespace std;
 
 
-// enable this macro if you want to enable the clone
-#define SHOW_CLOUD
-// enable to display network statistics
-#define SHOW_STATS
+// some useful constants
+const string outputFolder = "output/";
 
 // shuts down aria 
 void escapePressed()
@@ -312,7 +310,7 @@ string genCloudFileName(const string &prefix, const string &name)
   stringstream new_name;
   new_name << prefix << SEPARATOR
   	   << name << SEPARATOR
-           << timeInfo->tm_mon << DATE_SEPARATOR
+           << timeInfo->tm_mon + 1 << DATE_SEPARATOR
            << timeInfo->tm_mday << SEPARATOR
 	   << timeInfo->tm_hour << TIME_SEPARATOR
 	   << timeInfo->tm_min << TIME_SEPARATOR
@@ -321,48 +319,36 @@ string genCloudFileName(const string &prefix, const string &name)
   return new_name.str();
 }
 
-// Writes all the laser point clouds as a single point cloud file
+// Writes each point cloud from the list of laser point clouds and the
+// single point cloud for robot position as files to specified folder.
 void writeCloudToFile(vector<PCLOutputHandler *> &pclClients)
 {
   string fileName = "";
-  /*
-  pcl::PointCloud<pcl::PointXYZRGB> fullCloud;
-  */
-  pcl::PointCloud<pcl::PointXYZRGB> oneCloud;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
 
-  // combine all the point clouds
   for (size_t i = 0; i < pclClients.size(); i++) {
-    // generate cloud file for laser data
-    fileName = genCloudFileName("laser",
-				pclClients[i]->getClient()->getHost());
-    oneCloud = *(pclClients[i]->getLaserCloud());
-    pcl::io::savePCDFile(fileName, oneCloud);
-    echo("NEW PCD FILE", fileName);
-
-    // generate cloud file for robot's location
+    // generate the cloud file corresponding to robot position
     fileName = genCloudFileName("robot",
-				pclClients[i]->getClient()->getHost());
-    oneCloud = *(pclClients[i]->getRobotCloud());
-    pcl::io::savePCDFile(fileName, oneCloud);
+	pclClients[i]->getClient()->getHost());
+    cloud = pclClients[i]->getRobotCloud();
+    pcl::io::savePCDFile(outputFolder + fileName, *cloud);
     echo("NEW PCD FILE", fileName);
 
-    /*
-    // combine for the full cloud
-    fullCloud += *(pclClients[i]->getLaserCloud());
-    fullCloud += *(pclClients[i]->getRobotCloud());
-    */
+    // generate cloud files corresponding to the time stamped cloud files
+    std::vector<TimeStampedPCL *> *laserClouds = 
+      pclClients[i]->getLaserClouds();
+    int j = 0;
+    for (std::vector<TimeStampedPCL *>::const_iterator it =
+	 laserClouds->begin(); it != laserClouds->end(); it++) {
+      cloud = (*it)->getCloud();
+      ostringstream os;
+      os << j++;
+      fileName = genCloudFileName("laser" + os.str(),
+	  pclClients[i]->getClient()->getHost());
+      pcl::io::savePCDFile(outputFolder + fileName, *cloud);
+      echo("NEW PCD FILE", fileName);
+    }
   }
-
-  /*
-  fileName = genCloudFileName("ALL");
-  if (fullCloud.width > 0) {
-    pcl::io::savePCDFile(fileName, fullCloud);
-    echo("NEW PCD FILE", fileName);
-  }
-  else {
-    echo("NO CLOUD POINTS. LASER OFF ???");
-  }
-  */
 }
 
 
@@ -438,7 +424,7 @@ int main(int argc, char **argv)
     writeToFileFtr(writeCloudToFile, pclClients);
 
   keyHandler.addKeyHandler('f', &writeToFileFtr);
-  echo("press f to create pcd file of current point cloud");
+  echo("PRESS F TO WRITE POINT CLOUDS TO output/");
 
   /*
   client->logDataList();  // prints available data on server
@@ -446,7 +432,7 @@ int main(int argc, char **argv)
   */
 
   // breathing time for inital setup procedures
-  ArUtil::sleep(1000);
+  ArUtil::sleep(500);
 
   // Continally check the keyboard presses.
   while (client->getRunningWithLock()) {
