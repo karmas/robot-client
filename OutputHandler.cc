@@ -11,6 +11,8 @@ TimeStampedPCL::TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
   : cloud(c), timeStamp(ts) { }
 
 
+// Density is set to points per cubic/square dm
+const int OutputHandler::myDensityDivisor = 100;
 
 OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
     			     int robotColor)
@@ -200,8 +202,10 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   //statsDisplay(myClient->getRobotName(), packet);
   //myClient->logTracking(true);
 
-  //cout << "DENSITY " << calcAvgDensity() << endl;
-  //calcAvgDensity();
+  cout << "Density in whole point cloud (points/dm) = ";
+  cout << calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, 
+      			    myDensityDivisor);
+  cout << endl;
 }
 
 // Writes current PCL cloud to a file in the following format
@@ -272,53 +276,6 @@ void PCLOutputHandler::setMinMax(const pcl::PointXYZRGB &point)
   else if (point.z > myMaxVals.z) myMaxVals.z = point.z;
 }
 
-// Calculate the point density which is the number of points
-// in a selected volume. The default units for the laser is mm.
-// Hence the values have to be scaled to desired units.
-double PCLOutputHandler::calcAvgDensity()
-{
-  // this is mm to decimeter (10cm);
-  const int factor = 100;
-  const string units = "dm";
-  double l, b, h, v;
-
-  // range of x values
-  if ((myMinVals.x >= 0.0 && myMaxVals.x >= 0.0) ||
-      (myMinVals.x <= 0.0 && myMaxVals.x <= 0.0))
-    l = fabs(fabs(myMaxVals.x) - fabs(myMinVals.x));
-  else
-    l = fabs(myMaxVals.x) + fabs(myMinVals.x);
-  // range of y values
-  if ((myMinVals.y >= 0.0 && myMaxVals.y >= 0.0) ||
-      (myMinVals.y <= 0.0 && myMaxVals.y <= 0.0))
-    b = fabs(fabs(myMaxVals.y) - fabs(myMinVals.y));
-  else
-    b = fabs(myMaxVals.y) + fabs(myMinVals.y);
-  // range of z values
-  if ((myMinVals.z >= 0.0 && myMaxVals.z >= 0.0) ||
-      (myMinVals.z <= 0.0 && myMaxVals.z <= 0.0))
-    h = fabs(fabs(myMaxVals.z) - fabs(myMinVals.z));
-  else
-    h = fabs(myMaxVals.z) + fabs(myMinVals.z);
-
-  // scale the measurements to desired units
-  l = l/factor;
-  b = b/factor;
-  h = h/factor;
-
-  // calculate density
-  v = l * b * h;
-  //cout << "\tchosen units " << units << endl;
-  //cout << "L " << l << "  ";
-  //cout << "B " << b << "  ";
-  //cout << "H " << h << "  ";
-  //cout << "VOL " << v << "  ";
-
-  calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, units);
-
-  return myLaserCloud->size() / v;
-}
-
 
 
 PCLViewer::PCLViewer(const std::string& title)
@@ -361,15 +318,47 @@ void PCLViewer::addTimeStampedCloud(TimeStampedPCL *tsCloud)
 // MinVal holds the minimum values for the co-ordinates and maxVal
 // holds the maximum values. These two points represent the furthest
 // points in a cuboid region of space.
-// The units parameter is checked against a number of possibilites.
+// Also uses the given divison value to convert to required units
 double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
     			 const MyPoint &minVal, const MyPoint &maxVal,
-			 const std::string &units)
+			 int divisor)
 {
+  // get number of points in the region
+  int nPoints = 0;
+  for (size_t i = 0; i < cloud->size(); i++) {
+    if (minVal.x <= (*cloud)[i].x && maxVal.x >= (*cloud)[i].x &&
+        minVal.y <= (*cloud)[i].y && maxVal.y >= (*cloud)[i].y &&
+        minVal.z <= (*cloud)[i].z && maxVal.z >= (*cloud)[i].z) {
+      nPoints++;
+    }
+  }
 
-  cout << "cloud size: " << cloud->size() << endl;
+  // get the volume of the region
+  double l = 0.0, b = 0.0, h = 0.0;
+  // the min and max of a dimension could have the same sign
+  if ((minVal.x < 0.0 && maxVal.x < 0.0) ||
+      (minVal.x > 0.0 && maxVal.x > 0.0))
+    l = fabs(fabs(maxVal.x) - fabs(minVal.x));
+  else
+    l = fabs(minVal.x) + fabs(maxVal.x);
+  if ((minVal.y < 0.0 && maxVal.y < 0.0) ||
+      (minVal.y > 0.0 && maxVal.y > 0.0))
+    b = fabs(fabs(maxVal.y) - fabs(minVal.y));
+  else
+    b = fabs(minVal.y) + fabs(maxVal.y);
+  if ((minVal.z < 0.0 && maxVal.z < 0.0) ||
+      (minVal.z > 0.0 && maxVal.z > 0.0))
+    h = fabs(fabs(maxVal.z) - fabs(minVal.z));
+  else
+    h = fabs(minVal.z) + fabs(maxVal.z);
 
-  return 0.0;
+  // scale the volume to preferred units
+  l /= divisor;
+  b /= divisor;
+  h /= divisor;
+  double v = (h > 0.0) ? l*b*h : l*b;
+
+  return nPoints/v;
 }
 
 // Perform voxel filter and return filtered cloud

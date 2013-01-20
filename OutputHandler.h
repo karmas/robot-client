@@ -87,6 +87,8 @@ protected:
   int myRobotColor;
   MyPoint myVoxelLeaf;
 
+  static const int myDensityDivisor;
+
 private:
   ArFunctor1C<OutputHandler, ArNetPacket *> handleUpdateInfoftr;
   ArFunctor1C<OutputHandler, ArNetPacket *> handleSensorInfoftr;
@@ -112,7 +114,6 @@ public:
   }
   void printClouds();
   void setMinMax(const pcl::PointXYZRGB &point);
-  double calcAvgDensity();
 
 private:
   std::vector<TimeStampedPCL *> myLaserClouds;
@@ -136,7 +137,7 @@ private:
 
 double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
     			 const MyPoint &minVal, const MyPoint &maxVal,
-			 const std::string &units);
+			 int divisor);
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr
 voxelFilter(pcl::PointCloud<pcl::PointXYZRGB>::Ptr source,
     	    const MyPoint &leafSize);
