@@ -1,33 +1,34 @@
-#include "helpers.h"
 #include "Aria.h"
 
+#include "helpers.h"
+
 // some message display routines
-void echo(const string &msg)
+void echo(const std::string &msg)
 {
-  cout << "\t" << msg << endl;
+  std::cout << "\t" << msg << std::endl;
 }
 
-void echo(const string &id, const int value)
+void echo(const std::string &id, const int value)
 {
-  cout << "\t" << id << " = " << value << endl;
+  std::cout << "\t" << id << " = " << value << std::endl;
 }
 
-void echo(const string &id, const double value)
+void echo(const std::string &id, const double value)
 {
-  cout << "\t" << id << " = " << value << endl;
+  std::cout << "\t" << id << " = " << value << std::endl;
 }
 
-void echo(const string &id, const string &value)
+void echo(const std::string &id, const std::string &value)
 {
-  cout << "\t" << id << " = " << value << endl;
+  std::cout << "\t" << id << " = " << value << std::endl;
 }
 
 
-void errorExit(string msg)
+void errorExit(std::string msg)
 {
   echo(msg);
   Aria::shutdown();
-  exit(1);
+  std::exit(1);
 }
 
 // Pack the color information into a single integer which is needed for

@@ -1,6 +1,6 @@
-#include "MoveRobot.h"
 #include <iostream>
-using namespace std;
+
+#include "MoveRobot.h"
 
 
 MoveRobot::MoveRobot(ArClientBase *client, ArKeyHandler *keyHandler,
@@ -34,26 +34,27 @@ MoveRobot::~MoveRobot()
 // Tell the user about the control keys
 void MoveRobot::displayKeys() 
 {
-  string keyDesc[] = {
+  std::string keyDesc[] = {
     "move up", "move down", "move left", "move right", 
     "auto mode", "drive mode", "stop mode"
   };
 
-  string keyName[] = {
+  std::string keyName[] = {
     "UP", "DOWN", "LEFT", "RIGHT", "ESCAPE", "SPACE"
   };
 
-  cout << endl << myClient->getRobotName() << " control keys" << endl;
+  std::cout << std::endl << myClient->getRobotName() 
+    << " control keys" << std::endl;
 
   for (int i = 0; i < myNumKeys; i++) {
     int c = myMoveKeys[i];
     if (c < 256)
-      cout << keyDesc[i] << " = " << (char) c << endl;
+      std::cout << keyDesc[i] << " = " << (char) c << std::endl;
     else
-      cout << keyDesc[i] << " = " << keyName[c - 256] << endl;
+      std::cout << keyDesc[i] << " = " << keyName[c - 256] << std::endl;
   }
 
-  cout << endl;
+  std::cout << std::endl;
 }
 
 void MoveRobot::up() { myTransRatio = 100; }
@@ -66,7 +67,8 @@ void MoveRobot::autoMove()
 {
   // check if server supports automatic movement
   if (!myClient->dataExists("wander")) return;
-  else cout << "\t" << myClient->getRobotName() << " auto mode" << endl;
+  else std::cout << "\t" << myClient->getRobotName() 
+    << " auto mode" << std::endl;
 
   // disable driving mode
   manMode = false;
@@ -80,7 +82,8 @@ void MoveRobot::autoMove()
 void MoveRobot::manMove()
 {
   if (!myClient->dataExists("ratioDrive")) return;
-  else cout << "\t" << myClient->getRobotName() << " manual mode" << endl;
+  else std::cout << "\t" << myClient->getRobotName() 
+    << " manual mode" << std::endl;
 
   manMode = true;
 }
@@ -89,7 +92,8 @@ void MoveRobot::manMove()
 void MoveRobot::stopMove()
 {
   if (!myClient->dataExists("stop")) return;
-  else cout << "\t" << myClient->getRobotName() << " stop mode" << endl;
+  else std::cout << "\t" << myClient->getRobotName() 
+    << " stop mode" << std::endl;
 
   manMode = false;
   myClient->requestOnce("stop");

@@ -27,7 +27,7 @@ class ConfigFileReader {
 public:
   ConfigFileReader(int c, char **v, ArArgumentParser *parser)
     : myArgc(c), myArgv(v), myParser(parser), fileType(-1) { }
-  void readHostsFile(vector<HostInfo> &hostsInfo);
+  void readHostsFile(std::vector<HostInfo> &hostsInfo);
   static void printInfoFields();
 
   static const char *hostsArg;
@@ -46,12 +46,12 @@ private:
   int fileType;
 
   int checkFileArg();
-  ifstream *getFieldTypes(vector<size_t> &fieldTypes);
-  void getValidLine(ifstream &inFile, string &buffer);
-  void getFieldTypeIndices(const string &buffer,
-      			   vector<size_t> &fieldTypes);
+  std::ifstream *getFieldTypes(std::vector<size_t> &fieldTypes);
+  void getValidLine(std::ifstream &inFile, std::string &buffer);
+  void getFieldTypeIndices(const std::string &buffer,
+      			   std::vector<size_t> &fieldTypes);
   size_t matchFieldIndex(const char *fieldName);
-  void getIntSubFields(const string &s, vector<int> &subFields);
+  void getIntSubFields(const std::string &s, std::vector<int> &subFields);
 };
 
 

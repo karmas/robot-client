@@ -3,11 +3,12 @@
 #include <sstream>
 #include <vector>
 #include <cstdlib>
-using namespace std;
 
 #include "Aria.h"
-#include "ConfigFileReader.h"
+
 #include "helpers.h"
+#include "ConfigFileReader.h"
+
 
 // this is the required command line argument
 const char *ConfigFileReader::hostsArg = "-hosts";
@@ -34,7 +35,7 @@ const char *ConfigFileReader::mySubFieldSeparator = ",";
 // and returns the command line index of the filename
 int ConfigFileReader::checkFileArg()
 {
-  string errorMsg("PROVIDE CONFIGURATION FILE USING ARGUMENT\n\t");
+  std::string errorMsg("PROVIDE CONFIGURATION FILE USING ARGUMENT\n\t");
   errorMsg += "-hosts 'filename'";
 
   int fileIndex = -1;
@@ -70,8 +71,8 @@ size_t ConfigFileReader::matchFieldIndex(const char *fieldName)
 
 // Checks the buffer for valid words and stores the indices of those field
 // names in the fieldTypes array
-void ConfigFileReader::getFieldTypeIndices(const string &buffer,
-    vector<size_t> &fieldTypes)
+void ConfigFileReader::getFieldTypeIndices(const std::string &buffer,
+    std::vector<size_t> &fieldTypes)
 {
   char *temp = strdup(buffer.c_str());
   char *tok = strtok(temp, myFieldSeparator);
@@ -88,15 +89,16 @@ void ConfigFileReader::getFieldTypeIndices(const string &buffer,
 // Checks what information is supplied in the file
 // and returns an array with indicies for information type.
 // Hence the information can be in any order.
-ifstream *ConfigFileReader::getFieldTypes(vector<size_t> &fieldTypes)
+std::ifstream *ConfigFileReader::getFieldTypes(
+    std::vector<size_t> &fieldTypes)
 {
-  string buffer;
+  std::string buffer;
 
   // filename is in this index of myArgv
   int fileIndex = checkFileArg();
 
   // check for existence of file
-  ifstream *file = new ifstream(myArgv[fileIndex], ifstream::in);
+  std::ifstream *file = new std::ifstream(myArgv[fileIndex], std::ifstream::in);
   if (file->fail()) errorExit("NO SUCH FILE");
 
   // check for header line
@@ -105,7 +107,7 @@ ifstream *ConfigFileReader::getFieldTypes(vector<size_t> &fieldTypes)
   if (strcmp(buffer.c_str(), hostsFileHeader) != 0) {
     file->close();
     delete file;
-    string errorMsg = "REQUIRED HEADER GIVEN BELOW NOT FOUND!!!\n\t";
+    std::string errorMsg = "REQUIRED HEADER GIVEN BELOW NOT FOUND!!!\n\t";
     errorMsg += hostsFileHeader;
     errorExit(errorMsg);
     return NULL;	// never reached due to exit above
@@ -119,15 +121,16 @@ ifstream *ConfigFileReader::getFieldTypes(vector<size_t> &fieldTypes)
 }
 
 // fill buffer with the next line in stream which is not a comment
-void ConfigFileReader::getValidLine(ifstream &inFile, string &buffer) 
+void ConfigFileReader::getValidLine(std::ifstream &inFile,
+    				    std::string &buffer) 
 {
   while (getline(inFile,buffer) && buffer[0] == myCommentChar);
 }
 
 // get a list of sub fields as integer types from a single string 
 // containing sub fields separated by a selected sub field separator
-void ConfigFileReader::getIntSubFields(const string &s, 
-    vector<int> &subFields)
+void ConfigFileReader::getIntSubFields(const std::string &s, 
+    std::vector<int> &subFields)
 {
   char *temp = strdup(s.c_str());
   char *currSubField = strtok(temp, mySubFieldSeparator);
@@ -140,20 +143,20 @@ void ConfigFileReader::getIntSubFields(const string &s,
 }
 
 // reads files of type : servers 1.0
-void ConfigFileReader::readHostsFile(vector<HostInfo> &hostsInfo)
+void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
 {
   // store current host info
   HostInfo currHostInfo(NULL, 0, 0, TransformInfo(0,0,0), 0);
 
-  string line;
-  string field;
-  vector<int> subFields;
+  std::string line;
+  std::string field;
+  std::vector<int> subFields;
   int fieldIndex;
-  istringstream lineStream;
+  std::istringstream lineStream;
 
   // get array with section information
-  vector<size_t> fieldTypes;
-  ifstream *file = getFieldTypes(fieldTypes);
+  std::vector<size_t> fieldTypes;
+  std::ifstream *file = getFieldTypes(fieldTypes);
 
   // process each line according to the field type information
   while (file->good()) {
@@ -218,7 +221,7 @@ void ConfigFileReader::readHostsFile(vector<HostInfo> &hostsInfo)
     echo("y offset", currHostInfo.transformInfo.yOffset);
     echo("theta offset", currHostInfo.transformInfo.thetaOffset);
     echo("request frequency", currHostInfo.requestFreq);
-    cout << endl;
+    std::cout << std::endl;
 #endif
 
     // add current host information to the list of hosts
@@ -233,7 +236,7 @@ void ConfigFileReader::readHostsFile(vector<HostInfo> &hostsInfo)
 // display the valid info fields in configuration file
 void ConfigFileReader::printInfoFields()
 {
-  cout << endl;
+  std::cout << std::endl;
   echo("VALID FIELDS ARE:");
 
   for (int i = 0; i < 4; i++) {

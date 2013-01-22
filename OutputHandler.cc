@@ -1,10 +1,12 @@
 #include <ctime>
 #include <cmath>
-#include "OutputHandler.h"
-#include "helpers.h"
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 
+#include "helpers.h"
+#include "OutputHandler.h"
+
+// useful constants for the kalman filter
+const int stateDimensions = 2;
+const int measurementDimensions = 2;
 
 TimeStampedPCL::TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
 			       long ts)
@@ -14,11 +16,20 @@ TimeStampedPCL::TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
 // Density is set to points per cubic/square dm
 const int OutputHandler::myDensityDivisor = 100;
 
+// Kalman filter is applied to estimate the robot position which consists
+// of x and y co-ordinate values.
+// The measurement is the odometer reading from the robot itself which
+// consists of x and y co-ordinate values.
+// Currently control information is not incorporated. The directional
+// velocities could be used.
 OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
     			     int robotColor)
   : myClient(client), myViewer(viewer),
     myRobotCloud(new pcl::PointCloud<pcl::PointXYZRGB>),
     myRobotColor(robotColor),
+    myRobotCloudFiltered(new pcl::PointCloud<pcl::PointXYZRGB>),
+    kalmanFilter(
+	new cv::KalmanFilter(stateDimensions, measurementDimensions)),
     handleUpdateInfoftr(this, &OutputHandler::handleUpdateInfo),
     handleSensorInfoftr(this, &OutputHandler::handleSensorInfo)
 {
@@ -38,6 +49,19 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
   // set the voxel leaf to 1 cm
   // note: the clouds are storing in mm
   myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 10.0f;
+
+  ////////////////////////////////////////////////
+  // initialize the model for the kalman filter//
+  // ////////////////////////////////////////////
+  // set the transition matrix to [ 1 0 ]
+  // 				  [ 0 1 ]
+  kalmanFilter->transitionMatrix = *(cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
+  //setIdentity(kalmanFilter->measurementMatrix);
+  setIdentity(kalmanFilter->processNoiseCov, cv::Scalar::all(1e-5));
+  setIdentity(kalmanFilter->measurementNoiseCov, cv::Scalar::all(1e-2));
+  //setIdentity(kalmanFilter->errorCovPost, cv::Scalar::all(1));
+  // initial state is random
+  randn(kalmanFilter->statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
 }
 
 // free up some memory
@@ -48,6 +72,7 @@ OutputHandler::~OutputHandler()
   */
   for (size_t i = 0; i < myRobotInfos.size(); i++)
     delete myRobotInfos[i];
+  ////delete kalmanFilter;
 }
 
 // This function displays some positional information on the robot.
@@ -57,9 +82,9 @@ void OutputHandler::handleUpdateInfo(ArNetPacket *packet)
   char buffer[BUFFER_LENGHT];
 
   packet->bufToStr(buffer, BUFFER_LENGHT);
-  //cout << "status is " << buffer << endl;
+  //std::cout << "status is " << buffer << std::endl;
   packet->bufToStr(buffer, BUFFER_LENGHT);
-  //cout << "mode is " << buffer << endl;
+  //std::cout << "mode is " << buffer << std::endl;
   packet->bufToByte2();
   int xPosition = (double)packet->bufToByte4();
   int yPosition = (double)packet->bufToByte4();
@@ -72,7 +97,7 @@ void OutputHandler::handleUpdateInfo(ArNetPacket *packet)
   point.rgba = myRobotColor;
   
   myRobotCloud->push_back(point);
-  myViewer->addCloud(myRobotCloud, myClient->getHost() + string("robot"));
+  myViewer->addCloud(myRobotCloud, myClient->getHost() + std::string("robot"));
 }
 
 // This function displays some laser readings on the robot.
@@ -82,17 +107,17 @@ void OutputHandler::handleSensorInfo(ArNetPacket *packet)
   char buffer[BUFFER_LENGHT];
 
   int nReadings = packet->bufToByte2();
-  cout << myClient->getRobotName() << " sent readings = "
-       << nReadings << endl;
+  std::cout << myClient->getRobotName() << " sent readings = "
+       << nReadings << std::endl;
   packet->bufToStr(buffer, BUFFER_LENGHT);
-  //cout << "sensor name is " << buffer << endl;
+  //std::cout << "sensor name is " << buffer << std::endl;
 
   int x, y;
   for (int i = 0; i < 1; i++) {
     x = packet->bufToByte4();
     y = packet->bufToByte4();
-    cout << myClient->getRobotName() << " reading " << i + 1 
-         << " = " << x << " , " << y << endl;
+    std::cout << myClient->getRobotName() << " reading " << i + 1 
+         << " = " << x << " , " << y << std::endl;
   }
 }
 
@@ -171,7 +196,43 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   myRobotInfos.push_back(new RobotInfo(point, timeStamp, th));
 
   myRobotCloud->push_back(point);
-  myViewer->addCloud(myRobotCloud, myClient->getHost() + string("robot"));
+  myViewer->addCloud(myRobotCloud, myClient->getHost() + std::string("robot"));
+
+  // kalman filtering of robot position
+  // get previous state
+  cv::Mat state(2, 1, CV_32F);
+  state = kalmanFilter->statePost;
+  kalmanFilter->predict();	// perform prediction
+  // fill measurement matrix with values from odometer
+  cv::Mat measurement(2, 1, CV_32F);
+  measurement.at<float>(0) = point.x;
+  measurement.at<float>(1) = point.y;
+  // adjust kalman filter state with measurement
+  kalmanFilter->correct(measurement);
+  // random noise for the process
+  cv::Mat processNoise(2, 1, CV_32F);
+  // randn(output array of random numbers,
+  //       mean value of generated random numbers,
+  //       stddev of random numbers)
+  randn(processNoise, cv::Scalar(0),
+        cv::Scalar::all(sqrt(kalmanFilter->processNoiseCov.at<float>(0,0))));
+  // get current state from model
+  state = kalmanFilter->transitionMatrix*state + processNoise;
+  // retreive state values and give it white color for display
+  pcl::PointXYZRGB pointFiltered;
+  pointFiltered.x = state.at<float>(0);
+  pointFiltered.y = state.at<float>(1);
+  pointFiltered.z = 0;
+  pointFiltered.rgba = rgba(0,0,255);
+
+  std::cout << " x = " << point.x << " || " << pointFiltered.x << " , "
+            << " y = " << point.y << " || " << pointFiltered.y
+	    << std::endl;
+
+  // remember the filtered positions and display
+  myRobotCloudFiltered->push_back(pointFiltered);
+  myViewer->addCloud(myRobotCloudFiltered,
+      		     myClient->getHost() + std::string("robotFiltered"));
 
   // get number of points
   int nPoints = packet->bufToByte4();
@@ -197,15 +258,16 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 
   // Display the laser points using the aggregate cloud not the list
   // because the viewer refreshes each time a cloud is added.
-  myViewer->addCloud(myLaserCloud, myClient->getHost() + string("laser"));
+  myViewer->addCloud(myLaserCloud,
+      		     myClient->getHost() + std::string("laser"));
 
   //statsDisplay(myClient->getRobotName(), packet);
   //myClient->logTracking(true);
 
-  cout << "Density in whole point cloud (points/dm) = ";
-  cout << calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, 
-      			    myDensityDivisor);
-  cout << endl;
+  //std::cout << "Density in whole point cloud (points/dm) = ";
+  //std::cout << calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, 
+  //    			    myDensityDivisor);
+  //std::cout << std::endl;
 }
 
 // Writes current PCL cloud to a file in the following format
@@ -218,7 +280,7 @@ void PCLOutputHandler::createFile(const char *filename)
   time_t seconds = time(NULL);
   struct tm *timeInfo = localtime(&seconds);
 
-  stringstream new_name;
+  std::stringstream new_name;
   new_name << filename << SEPARATOR
            << timeInfo->tm_mon << DATE_SEPARATOR
            << timeInfo->tm_mday << SEPARATOR
@@ -244,12 +306,12 @@ void PCLOutputHandler::printClouds()
 
   for (size_t i = 0; i < myLaserClouds.size() && i < 2; i++) {
     curr = myLaserClouds[i];
-    cout << "\tcloud " << i << endl;
+    std::cout << "\tcloud " << i << std::endl;
 
     cloud = curr->getCloud();
     for (size_t j = 0; j < 10; j++) {
-      cout << "point " << j << ": ";
-      cout << (*cloud)[j].x << endl;
+      std::cout << "point " << j << ": ";
+      std::cout << (*cloud)[j].x << std::endl;
     }
   }
 }
@@ -307,7 +369,7 @@ void PCLViewer::addTimeStampedCloud(TimeStampedPCL *tsCloud)
   if (myViewer.wasStopped()) return;
   
   // create an string id
-  ostringstream os;
+  std::ostringstream os;
   os << tsCloud->getTimeStamp();
 
   addCloud(tsCloud->getCloud(), os.str());

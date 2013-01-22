@@ -13,6 +13,8 @@
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/filters/voxel_grid.h>
 
+#include <cv.h>
+
 // just to aggregate data
 struct MyPoint {
   float x, y, z;
@@ -77,6 +79,9 @@ public:
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr getRobotCloud() {
     return myRobotCloud;
   }
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr getRobotCloudFiltered() {
+    return myRobotCloudFiltered;
+  }
   ArClientBase *getClient() { return myClient; }
 
 protected:
@@ -86,6 +91,8 @@ protected:
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr myRobotCloud;
   int myRobotColor;
   MyPoint myVoxelLeaf;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr myRobotCloudFiltered;
+  cv::KalmanFilter *kalmanFilter;
 
   static const int myDensityDivisor;
 
