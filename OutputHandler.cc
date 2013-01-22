@@ -56,10 +56,11 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
   // set the transition matrix to [ 1 0 ]
   // 				  [ 0 1 ]
   kalmanFilter->transitionMatrix = *(cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
+  kalmanFilter->measurementMatrix = *(cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
   //setIdentity(kalmanFilter->measurementMatrix);
   setIdentity(kalmanFilter->processNoiseCov, cv::Scalar::all(1e-5));
   setIdentity(kalmanFilter->measurementNoiseCov, cv::Scalar::all(1e-2));
-  //setIdentity(kalmanFilter->errorCovPost, cv::Scalar::all(1));
+  setIdentity(kalmanFilter->errorCovPost, cv::Scalar::all(1));
   // initial state is random
   randn(kalmanFilter->statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
 }
@@ -175,13 +176,25 @@ void statsDisplay(const char *robotName, ArNetPacket *packet)
 // is displayed in a viewer.
 void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 {
-  pcl::PointXYZRGB point;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
-    tempLaserCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-  // get time information
   long timeStamp = packet->bufToByte4();
+  updateRobotLocation(packet, timeStamp);
+  updateLaserReadings(packet, timeStamp);
 
+  //statsDisplay(myClient->getRobotName(), packet);
+  //myClient->logTracking(true);
+
+  //std::cout << "Density in whole point cloud (points/dm) = ";
+  //std::cout << calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, 
+  //    			    myDensityDivisor);
+  //std::cout << std::endl;
+}
+
+// Extract robot location from packet and update the clouds holding
+// robot locations.
+void PCLOutputHandler::updateRobotLocation(ArNetPacket *packet,
+    long timeStamp)
+{
+  pcl::PointXYZRGB point;
   // get robot location from packet
   // but add offset to translate to global co-ordinates
   point.x = static_cast<float>(packet->bufToDouble()) + myXoffset;
@@ -191,22 +204,30 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 
   // get robot heading
   double th = packet->bufToDouble();
-
   // store the robot position when the scan is taken
   myRobotInfos.push_back(new RobotInfo(point, timeStamp, th));
 
+  // also display the robot position
   myRobotCloud->push_back(point);
-  myViewer->addCloud(myRobotCloud, myClient->getHost() + std::string("robot"));
+  myViewer->addCloud(myRobotCloud, 
+      myClient->getHost() + std::string("robot"));
 
-  // kalman filtering of robot position
+  filterRobotLocation(point);
+}
+
+// kalman filtering of robot position
+void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
+{
   // get previous state
   cv::Mat state(2, 1, CV_32F);
   state = kalmanFilter->statePost;
   kalmanFilter->predict();	// perform prediction
   // fill measurement matrix with values from odometer
   cv::Mat measurement(2, 1, CV_32F);
-  measurement.at<float>(0) = point.x;
-  measurement.at<float>(1) = point.y;
+  measurement.at<float>(0) = measured.x;
+  measurement.at<float>(1) = measured.y;
+  // generate measurement according to model
+  //measurement += kalmanFilter->measurementMatrix * state;
   // adjust kalman filter state with measurement
   kalmanFilter->correct(measurement);
   // random noise for the process
@@ -216,25 +237,35 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   //       stddev of random numbers)
   randn(processNoise, cv::Scalar(0),
         cv::Scalar::all(sqrt(kalmanFilter->processNoiseCov.at<float>(0,0))));
-  // get current state from model
-  state = kalmanFilter->transitionMatrix*state + processNoise;
+  // get updated state from model
+  state = kalmanFilter->transitionMatrix * state + processNoise;
   // retreive state values and give it white color for display
   pcl::PointXYZRGB pointFiltered;
   pointFiltered.x = state.at<float>(0);
   pointFiltered.y = state.at<float>(1);
   pointFiltered.z = 0;
-  pointFiltered.rgba = rgba(0,0,255);
+  pointFiltered.rgba = rgba(255,255,255);
 
-  std::cout << " x = " << point.x << " || " << pointFiltered.x << " , "
-            << " y = " << point.y << " || " << pointFiltered.y
+  std::cout << " x = " << measured.x << " || " << pointFiltered.x << " , "
+            << " y = " << measured.y << " || " << pointFiltered.y
 	    << std::endl;
 
   // remember the filtered positions and display
   myRobotCloudFiltered->push_back(pointFiltered);
   myViewer->addCloud(myRobotCloudFiltered,
       		     myClient->getHost() + std::string("robotFiltered"));
+}
 
-  // get number of points
+// Extract laser readings from packet and update the clouds holding
+// laser readings.
+void PCLOutputHandler::updateLaserReadings(ArNetPacket *packet, 
+    long timeStamp)
+{
+  pcl::PointXYZRGB point;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
+    tempLaserCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+  // get number of laser readings
   int nPoints = packet->bufToByte4();
 
   // extraction of point co-ordinates
@@ -251,50 +282,40 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
     myLaserCloud->push_back(point);
   }
 
-  // create time stamped cloud and store it in list
+  // downsample the current laser cloud and store it
+  tempLaserCloud = voxelFilter(tempLaserCloud, myVoxelLeaf);
   myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
 
+  // downsample the aggregate laser cloud
   myLaserCloud = voxelFilter(myLaserCloud, myVoxelLeaf);
 
   // Display the laser points using the aggregate cloud not the list
   // because the viewer refreshes each time a cloud is added.
   myViewer->addCloud(myLaserCloud,
       		     myClient->getHost() + std::string("laser"));
-
-  //statsDisplay(myClient->getRobotName(), packet);
-  //myClient->logTracking(true);
-
-  //std::cout << "Density in whole point cloud (points/dm) = ";
-  //std::cout << calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, 
-  //    			    myDensityDivisor);
-  //std::cout << std::endl;
 }
 
-// Writes current PCL cloud to a file in the following format
-// [filename]_[month]_[day]_[time]
-void PCLOutputHandler::createFile(const char *filename)
+// set min and max values if possible which can be later used
+// to get volume of the region scanned
+void PCLOutputHandler::setMinMax(const pcl::PointXYZRGB &point)
 {
-  const char SEPARATOR = '_';
-  const char DATE_SEPARATOR = '-';
-  const char TIME_SEPARATOR = ':';
-  time_t seconds = time(NULL);
-  struct tm *timeInfo = localtime(&seconds);
+  static bool firstTime = true;
 
-  std::stringstream new_name;
-  new_name << filename << SEPARATOR
-           << timeInfo->tm_mon << DATE_SEPARATOR
-           << timeInfo->tm_mday << SEPARATOR
-	   << timeInfo->tm_hour << TIME_SEPARATOR
-	   << timeInfo->tm_min << TIME_SEPARATOR
-	   << timeInfo->tm_sec << ".pcd";
+  // the first ever point is used to initialize the min and max values
+  if (firstTime) {
+    firstTime = false;
+    myMinVals.x = myMaxVals.x = point.x;
+    myMinVals.y = myMaxVals.y = point.y;
+    myMinVals.z = myMaxVals.z = point.z;
+    return;
+  }
 
-  if (myLaserCloud->width > 0) {
-    pcl::io::savePCDFile(new_name.str(), *myLaserCloud);
-    echo("NEW PCD FILE", new_name.str());
-  }
-  else {
-    echo("NO CLOUD POINTS. LASER OFF ???");
-  }
+  if (point.x < myMinVals.x) myMinVals.x = point.x;
+  else if (point.x > myMaxVals.x) myMaxVals.x = point.x;
+  if (point.y < myMinVals.y) myMinVals.y = point.y;
+  else if (point.y > myMaxVals.y) myMaxVals.y = point.y;
+  if (point.z < myMinVals.z) myMinVals.z = point.z;
+  else if (point.z > myMaxVals.z) myMaxVals.z = point.z;
 }
 
 // only used for debugging
@@ -316,27 +337,6 @@ void PCLOutputHandler::printClouds()
   }
 }
 
-// set min and max values if possible
-void PCLOutputHandler::setMinMax(const pcl::PointXYZRGB &point)
-{
-  static bool firstTime = true;
-
-  // the first ever point is used to initialize the min and max values
-  if (firstTime) {
-    firstTime = false;
-    myMinVals.x = myMaxVals.x = point.x;
-    myMinVals.y = myMaxVals.y = point.y;
-    myMinVals.z = myMaxVals.z = point.z;
-    return;
-  }
-
-  if (point.x < myMinVals.x) myMinVals.x = point.x;
-  else if (point.x > myMaxVals.x) myMaxVals.x = point.x;
-  if (point.y < myMinVals.y) myMinVals.y = point.y;
-  else if (point.y > myMaxVals.y) myMaxVals.y = point.y;
-  if (point.z < myMinVals.z) myMinVals.z = point.z;
-  else if (point.z > myMaxVals.z) myMaxVals.z = point.z;
-}
 
 
 

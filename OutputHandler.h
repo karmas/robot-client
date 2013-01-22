@@ -32,8 +32,7 @@ struct RobotInfo {
 // a time stamped point cloud
 class TimeStampedPCL {
 public:
-  TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
-                 long ts);
+  TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c, long ts);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr getCloud() { return cloud; }
   long getTimeStamp() { return timeStamp; }
 
@@ -112,15 +111,12 @@ public:
 		   int color, int xo, int yo, int to, int rf = 1000);
   ~PCLOutputHandler();
   void handlePCLdata(ArNetPacket *packet);
-  void createFile(const char *filename);
   std::vector<TimeStampedPCL *> *getLaserClouds() {
     return &myLaserClouds;
   }
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr getLaserCloud() {
     return myLaserCloud;
   }
-  void printClouds();
-  void setMinMax(const pcl::PointXYZRGB &point);
 
 private:
   std::vector<TimeStampedPCL *> myLaserClouds;
@@ -137,6 +133,12 @@ private:
   int myRequestFreq;
   MyPoint myMinVals;
   MyPoint myMaxVals;
+
+  void setMinMax(const pcl::PointXYZRGB &point);
+  void printClouds();
+  void updateRobotLocation(ArNetPacket *packet, long timeStamp);
+  void updateLaserReadings(ArNetPacket *packet, long timeStamp);
+  void filterRobotLocation(pcl::PointXYZRGB &measured);
 };
 
 
