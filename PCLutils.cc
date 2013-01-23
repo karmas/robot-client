@@ -31,7 +31,7 @@ PCLViewer::PCLViewer(const std::string& title,
   : myViewer(title), myClients(clients), myDemoState(false)
 {
   myViewer.setBackgroundColor(0,0,0);
-  myViewer.addCoordinateSystem(200.0);
+  myViewer.addCoordinateSystem(170.0);
   myViewer.initCameraParameters();
   //myViewer.registerKeyboardCallback(handleKeyboadEvents, (void*)this);
 }
@@ -105,7 +105,7 @@ void PCLViewer::startTimeDemo()
       // for each collection, display the point cloud indexed by cloudIndex
       addCloud((*tsClouds[j])[ts]->getCloud(), "laser");
     }
-    ArUtil::sleep(1000);
+    ArUtil::sleep(500);
     // clear the display window
     myViewer.removeAllPointClouds();
     myViewer.spinOnce(100);

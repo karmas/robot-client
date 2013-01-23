@@ -5,8 +5,10 @@
 #include "OutputHandler.h"
 
 // useful constants for the kalman filter
-const int stateDimensions = 2;
-const int measurementDimensions = 2;
+const int stateDims = 2;
+const int measurementDims = 2;
+const float processNoiseCovValue = 1e-5;
+const float measurementNoiseCovValue = 1e-2;
 
 
 // Density is set to points per cubic/square dm
@@ -25,7 +27,7 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
     myRobotColor(robotColor),
     myRobotCloudFiltered(new pcl::PointCloud<pcl::PointXYZRGB>),
     kalmanFilter(
-	new cv::KalmanFilter(stateDimensions, measurementDimensions)),
+	new cv::KalmanFilter(stateDims, measurementDims)),
     handleUpdateInfoftr(this, &OutputHandler::handleUpdateInfo),
     handleSensorInfoftr(this, &OutputHandler::handleSensorInfo)
 {
@@ -49,16 +51,26 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
   ////////////////////////////////////////////////
   // initialize the model for the kalman filter//
   // ////////////////////////////////////////////
+
   // set the transition matrix to [ 1 0 ]
   // 				  [ 0 1 ]
-  kalmanFilter->transitionMatrix = *(cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
-  kalmanFilter->measurementMatrix = *(cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
-  //setIdentity(kalmanFilter->measurementMatrix);
-  setIdentity(kalmanFilter->processNoiseCov, cv::Scalar::all(1e-5));
-  setIdentity(kalmanFilter->measurementNoiseCov, cv::Scalar::all(1e-2));
-  setIdentity(kalmanFilter->errorCovPost, cv::Scalar::all(1));
+  // state transition model
+  setIdentity(kalmanFilter->transitionMatrix);
+  setIdentity(kalmanFilter->processNoiseCov, 
+      	      cv::Scalar::all(processNoiseCovValue));
+  // measurement model
+  setIdentity(kalmanFilter->measurementMatrix);
+  setIdentity(kalmanFilter->measurementNoiseCov,
+      	      cv::Scalar::all(measurementNoiseCovValue));
+  //setIdentity(kalmanFilter->errorCovPost);
+
   // initial state is random
+  // set to starting location in PCLOutputHandler constructor
   randn(kalmanFilter->statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
+
+  // method to input individual elements
+  //kalmanFilter->transitionMatrix = 
+    //*(cv::Mat_<float>(stateDims, stateDims) << 1, 0, 0, 1);
 }
 
 // free up some memory
@@ -130,6 +142,10 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
     myXoffset(xo), myYoffset(yo), myThetaOffset(to),
     myRequestFreq(rf)
 {
+  // initial state is robot's starting pose
+  kalmanFilter->statePost.at<float>(0) = 0 + myXoffset;
+  kalmanFilter->statePost.at<float>(1) = 0 + myYoffset;
+
   // add a handler for the data packet
   myClient->addHandler("getPCL", &handlePCLdataftr);
   // then request it every cycle of given milliseconds
@@ -195,15 +211,19 @@ void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
   // get previous state
   cv::Mat state(2, 1, CV_32F);
   state = kalmanFilter->statePost;
+
   kalmanFilter->predict();	// perform prediction
+
   // fill measurement matrix with values from odometer
   cv::Mat measurement(2, 1, CV_32F);
   measurement.at<float>(0) = measured.x;
   measurement.at<float>(1) = measured.y;
   // generate measurement according to model
   //measurement += kalmanFilter->measurementMatrix * state;
+
   // adjust kalman filter state with measurement
   kalmanFilter->correct(measurement);
+
   // random noise for the process
   cv::Mat processNoise(2, 1, CV_32F);
   // randn(output array of random numbers,
@@ -211,6 +231,7 @@ void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
   //       stddev of random numbers)
   randn(processNoise, cv::Scalar(0),
         cv::Scalar::all(sqrt(kalmanFilter->processNoiseCov.at<float>(0,0))));
+
   // get updated state from model
   state = kalmanFilter->transitionMatrix * state + processNoise;
   // retreive state values and give it white color for display
