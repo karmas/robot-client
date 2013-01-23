@@ -3,9 +3,8 @@ project(CLIENT)
 
 # Source files
 set(SRC
-    helpers.cc MoveRobot.cc ConfigFileReader.cc OutputHandler.cc
-    client.cc
-)
+    helpers.cc MoveRobot.cc ConfigFileReader.cc
+    PCLutils.cc OutputHandler.cc client.cc)
 # Program name
 set(PROG client)
 

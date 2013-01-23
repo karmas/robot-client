@@ -15,63 +15,7 @@
 
 #include <cv.h>
 
-// forward declarations
-class PCLOutputHandler;
-
-// just to aggregate data
-struct MyPoint {
-  float x, y, z;
-};
-
-// group robot position, heading and timestamp
-struct RobotInfo {
-  RobotInfo(const pcl::PointXYZRGB &pt, long ts, double h)
-    : point(pt), timeStamp(ts), th(h) { }
-  pcl::PointXYZRGB point;
-  long timeStamp;
-  double th;	// heading in degrees
-};
-
-// a time stamped point cloud
-class TimeStampedPCL {
-public:
-  TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c, long ts);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr getCloud() { return cloud; }
-  long getTimeStamp() { return timeStamp; }
-
-private:
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
-  long timeStamp;
-
-  // make copying illegal
-  TimeStampedPCL(const TimeStampedPCL &) {}
-  TimeStampedPCL &operator=(const TimeStampedPCL &) { return *this; }
-};
-
-
-
-// This class is responsible for displaying point clouds on a viewer
-class PCLViewer {
-public:
-  PCLViewer(const std::string& title,
-      	    std::vector<PCLOutputHandler *> &clients); 
-  ~PCLViewer() {}
-  void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
-      		const std::string& name);
-  void addTimeStampedCloud(TimeStampedPCL *tsCloud);
-  void startTimeDemo();
-  void stopTimeDemo();
-  bool inDemoMode() { return myDemoState; }
-
-private:
-  PCLViewer(const PCLViewer&);
-  PCLViewer& operator=(const PCLViewer&);
-
-  pcl::visualization::PCLVisualizer myViewer;
-  std::vector<PCLOutputHandler *> &myClients;
-  bool myDemoState;
-};
-
+#include "PCLutils.h"
 
 
 // This class handles output data from server. Currently it supports the
