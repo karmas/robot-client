@@ -54,14 +54,17 @@ public:
   ~PCLViewer() {}
   void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
       		const std::string& name);
-  void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud);
   void addTimeStampedCloud(TimeStampedPCL *tsCloud);
+  void startTimeDemo();
+  void stopTimeDemo();
+  bool inDemoMode() { return myDemoState; }
 
 private:
   PCLViewer(const PCLViewer&);
   PCLViewer& operator=(const PCLViewer&);
 
-  pcl::visualization::CloudViewer myViewer;
+  pcl::visualization::PCLVisualizer myViewer;
+  bool myDemoState;
 };
 
 

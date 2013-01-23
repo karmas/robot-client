@@ -73,7 +73,7 @@ OutputHandler::~OutputHandler()
   */
   for (size_t i = 0; i < myRobotInfos.size(); i++)
     delete myRobotInfos[i];
-  ////delete kalmanFilter;
+  delete kalmanFilter;
 }
 
 // This function displays some positional information on the robot.
@@ -338,26 +338,41 @@ void PCLOutputHandler::printClouds()
 }
 
 
-
-
-PCLViewer::PCLViewer(const std::string& title)
-  : myViewer(title)
+// Handle the key presses in the cloud viewer window
+void handleKeyboadEvents(const pcl::visualization::KeyboardEvent &keyEvent,
+    			 void *arg)
 {
+  // get the viewer
+  PCLViewer *viewer = static_cast<PCLViewer *>(arg);
+
+  if (keyEvent.getKeySym() == "t" && keyEvent.keyDown())
+    viewer->startTimeDemo();
 }
 
+
+// Initialize the viewer window
+PCLViewer::PCLViewer(const std::string& title)
+  : myViewer(title), myDemoState(false)
+{
+  myViewer.setBackgroundColor(0,0,0);
+  myViewer.addCoordinateSystem(500.0);
+  myViewer.initCameraParameters();
+  //myViewer.registerKeyboardCallback(handleKeyboadEvents, (void*)this);
+}
+
+// Add a cloud or update it if it has already been added before
 void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
     			 const std::string& name)
 {
-  if (myViewer.wasStopped()) return;
+  if (myViewer.wasStopped() || myDemoState) return;
+  // give viewer time to process events
+  myViewer.spinOnce(200);
 
-  myViewer.showCloud(cloud, name);
-}
+  if (!myViewer.updatePointCloud(cloud, name))
+    myViewer.addPointCloud(cloud, name);
 
-void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
-{
-  if (myViewer.wasStopped()) return;
-
-  myViewer.showCloud(cloud);
+  //myViewer.setPointCloudRenderingProperties(
+   //   pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, name);
 }
 
 // Adds cloud in the time stamped cloud.
@@ -375,6 +390,20 @@ void PCLViewer::addTimeStampedCloud(TimeStampedPCL *tsCloud)
   addCloud(tsCloud->getCloud(), os.str());
 }
 
+// Start demo for time stamped point clouds and suspend normal view
+void PCLViewer::startTimeDemo()
+{
+  myDemoState = true;
+  echo("TIME STAMP DEMO MODE");
+  //myViewer.removeAllPointClouds();
+}
+
+// Stop demo for time stamped point clouds and resume normal view
+void PCLViewer::stopTimeDemo()
+{
+  myDemoState = false;
+  echo("NORMAL MODE");
+}
 
 // Return average density in given region of a point cloud.
 // MinVal holds the minimum values for the co-ordinates and maxVal
