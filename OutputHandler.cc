@@ -246,9 +246,9 @@ void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
   pointFiltered.z = 0;
   pointFiltered.rgba = rgba(255,255,255);
 
-  std::cout << " x = " << measured.x << " || " << pointFiltered.x << " , "
-            << " y = " << measured.y << " || " << pointFiltered.y
-	    << std::endl;
+//  std::cout << " x = " << measured.x << " || " << pointFiltered.x << " , "
+//            << " y = " << measured.y << " || " << pointFiltered.y
+//	    << std::endl;
 
   // remember the filtered positions and display
   myRobotCloudFiltered->push_back(pointFiltered);
@@ -339,6 +339,7 @@ void PCLOutputHandler::printClouds()
 
 
 // Handle the key presses in the cloud viewer window
+// This is causing the window to hang up.
 void handleKeyboadEvents(const pcl::visualization::KeyboardEvent &keyEvent,
     			 void *arg)
 {
@@ -347,15 +348,18 @@ void handleKeyboadEvents(const pcl::visualization::KeyboardEvent &keyEvent,
 
   if (keyEvent.getKeySym() == "t" && keyEvent.keyDown())
     viewer->startTimeDemo();
+
+  return;
 }
 
 
 // Initialize the viewer window
-PCLViewer::PCLViewer(const std::string& title)
-  : myViewer(title), myDemoState(false)
+PCLViewer::PCLViewer(const std::string& title,
+    		     std::vector<PCLOutputHandler *> &clients)
+  : myViewer(title), myClients(clients), myDemoState(false)
 {
   myViewer.setBackgroundColor(0,0,0);
-  myViewer.addCoordinateSystem(500.0);
+  myViewer.addCoordinateSystem(200.0);
   myViewer.initCameraParameters();
   //myViewer.registerKeyboardCallback(handleKeyboadEvents, (void*)this);
 }
@@ -364,9 +368,9 @@ PCLViewer::PCLViewer(const std::string& title)
 void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
     			 const std::string& name)
 {
-  if (myViewer.wasStopped() || myDemoState) return;
+  if (myViewer.wasStopped()) return;
   // give viewer time to process events
-  myViewer.spinOnce(200);
+  myViewer.spinOnce(100);
 
   if (!myViewer.updatePointCloud(cloud, name))
     myViewer.addPointCloud(cloud, name);
@@ -390,12 +394,50 @@ void PCLViewer::addTimeStampedCloud(TimeStampedPCL *tsCloud)
   addCloud(tsCloud->getCloud(), os.str());
 }
 
-// Start demo for time stamped point clouds and suspend normal view
+// Start demo for time stamped point clouds and suspend normal view.
+// It iterates through each point cloud.
+// Shows the point cloud.
+// Pauses.
+// Then Repeats.
 void PCLViewer::startTimeDemo()
 {
   myDemoState = true;
   echo("TIME STAMP DEMO MODE");
-  //myViewer.removeAllPointClouds();
+
+  // clear the display window
+  myViewer.removeAllPointClouds();
+  myViewer.spinOnce(200);
+
+  size_t nClients = myClients.size();
+
+  // This array of pointers will be used to refer to vector of time stamped
+  // point clouds stored in each client.
+  std::vector<TimeStampedPCL *> *tsClouds[nClients];
+
+  // Go through each client.
+  for (size_t i = 0; i < nClients; i++) {
+    // Stop the data transer.
+    myClients[i]->getClient()->requestStop("getPCL");
+    // Remember the collection of time stamped point clouds
+    tsClouds[i] = myClients[i]->getLaserClouds();
+  }
+
+  // Number of time steps should be same for each client's collection so
+  // just use the first client's info
+  size_t timeSteps = tsClouds[0]->size();
+
+  // Now display point clouds from the collection in sequence with time
+  // gap.
+  for (size_t ts = 0; ts < timeSteps; ts++) {
+    for (size_t j = 0; j < nClients; j++) {
+      // for each collection, display the point cloud indexed by cloudIndex
+      addCloud((*tsClouds[j])[ts]->getCloud(), "laser");
+    }
+    ArUtil::sleep(1000);
+    // clear the display window
+    myViewer.removeAllPointClouds();
+    myViewer.spinOnce(100);
+  }
 }
 
 // Stop demo for time stamped point clouds and resume normal view
@@ -403,6 +445,14 @@ void PCLViewer::stopTimeDemo()
 {
   myDemoState = false;
   echo("NORMAL MODE");
+
+  // clear the display window
+  myViewer.removeAllPointClouds();
+  myViewer.spinOnce(200);
+
+  // continue data transfer
+  for (size_t i = 0; i < myClients.size(); i++)
+    myClients[i]->getClient()->request("getPCL", 1000);
 }
 
 // Return average density in given region of a point cloud.

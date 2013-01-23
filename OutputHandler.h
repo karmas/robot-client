@@ -15,6 +15,9 @@
 
 #include <cv.h>
 
+// forward declarations
+class PCLOutputHandler;
+
 // just to aggregate data
 struct MyPoint {
   float x, y, z;
@@ -50,7 +53,8 @@ private:
 // This class is responsible for displaying point clouds on a viewer
 class PCLViewer {
 public:
-  PCLViewer(const std::string& title); 
+  PCLViewer(const std::string& title,
+      	    std::vector<PCLOutputHandler *> &clients); 
   ~PCLViewer() {}
   void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
       		const std::string& name);
@@ -64,6 +68,7 @@ private:
   PCLViewer& operator=(const PCLViewer&);
 
   pcl::visualization::PCLVisualizer myViewer;
+  std::vector<PCLOutputHandler *> &myClients;
   bool myDemoState;
 };
 

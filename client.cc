@@ -332,6 +332,14 @@ void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
   }
 }
 
+// Displays the time stamp demo in the visual window
+void timeStampDemo(std::vector<PCLOutputHandler *> &pclClients,
+    		   PCLViewer *viewer)
+{
+  if (viewer->inDemoMode()) viewer->stopTimeDemo();
+  else viewer->startTimeDemo();
+}
+
 
 // main main
 int main(int argc, char **argv)
@@ -366,7 +374,7 @@ int main(int argc, char **argv)
   connectHosts(clients, hostsInfo);
 
   // create the viewer which will show the point cloud
-  PCLViewer viewer("Cloud Viewer c2012 FRCV");
+  PCLViewer viewer("Cloud Viewer c2012 FRCV", pclClients);
 
   // create the keyhandler which allows manipulating the robots
   ArKeyHandler keyHandler;
@@ -406,6 +414,13 @@ int main(int argc, char **argv)
 
   keyHandler.addKeyHandler('f', &writeToFileFtr);
   echo("PRESS F TO WRITE POINT CLOUDS TO output/");
+
+  // Functor for initiating time stamp demo
+  ArGlobalFunctor2< std::vector<PCLOutputHandler *>& ,
+    		    PCLViewer * >
+    timeStampDemoFtr(timeStampDemo, pclClients, &viewer);
+  keyHandler.addKeyHandler('t', &timeStampDemoFtr);
+  echo("PRESS T TO BEGIN TIME STAMP DEMO");
 
   /*
   client->logDataList();  // prints available data on server
