@@ -7,7 +7,7 @@
 // useful constants for the kalman filter
 const int stateDims = 2;
 const int measurementDims = 2;
-const float processNoiseCovValue = 1e-5;
+const float processNoiseCovValue = 1e-1;
 const float measurementNoiseCovValue = 1e-2;
 
 
@@ -62,11 +62,11 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
   setIdentity(kalmanFilter->measurementMatrix);
   setIdentity(kalmanFilter->measurementNoiseCov,
       	      cv::Scalar::all(measurementNoiseCovValue));
-  //setIdentity(kalmanFilter->errorCovPost);
+  setIdentity(kalmanFilter->errorCovPost);
 
   // initial state is random
   // set to starting location in PCLOutputHandler constructor
-  randn(kalmanFilter->statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
+  //randn(kalmanFilter->statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
 
   // method to input individual elements
   //kalmanFilter->transitionMatrix = 
@@ -208,42 +208,23 @@ void PCLOutputHandler::updateRobotLocation(ArNetPacket *packet,
 // kalman filtering of robot position
 void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
 {
-  // get previous state
-  cv::Mat state(2, 1, CV_32F);
-  state = kalmanFilter->statePost;
-
   kalmanFilter->predict();	// perform prediction
 
   // fill measurement matrix with values from odometer
   cv::Mat measurement(2, 1, CV_32F);
   measurement.at<float>(0) = measured.x;
   measurement.at<float>(1) = measured.y;
-  // generate measurement according to model
-  //measurement += kalmanFilter->measurementMatrix * state;
 
   // adjust kalman filter state with measurement
-  kalmanFilter->correct(measurement);
+  cv::Mat state(2, 1, CV_32F);
+  state = kalmanFilter->correct(measurement);
 
-  // random noise for the process
-  cv::Mat processNoise(2, 1, CV_32F);
-  // randn(output array of random numbers,
-  //       mean value of generated random numbers,
-  //       stddev of random numbers)
-  randn(processNoise, cv::Scalar(0),
-        cv::Scalar::all(sqrt(kalmanFilter->processNoiseCov.at<float>(0,0))));
-
-  // get updated state from model
-  state = kalmanFilter->transitionMatrix * state + processNoise;
   // retreive state values and give it white color for display
   pcl::PointXYZRGB pointFiltered;
   pointFiltered.x = state.at<float>(0);
   pointFiltered.y = state.at<float>(1);
   pointFiltered.z = 0;
   pointFiltered.rgba = rgba(255,255,255);
-
-//  std::cout << " x = " << measured.x << " || " << pointFiltered.x << " , "
-//            << " y = " << measured.y << " || " << pointFiltered.y
-//	    << std::endl;
 
   // remember the filtered positions and display
   myRobotCloudFiltered->push_back(pointFiltered);
