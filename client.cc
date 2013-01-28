@@ -43,7 +43,7 @@
 
 
 // some useful constants
-const std::string outputFolder = "output/";
+const std::string outDirPrefix = "clouds";
 
 // shuts down aria 
 void escapePressed()
@@ -278,9 +278,9 @@ void joyInfoDisplay()
   std::cout << std::endl;
 }
 
-// Creates long filename with the given argument 'name'
-// prefixed by the word "cloud" and suffixed by time information
-std::string genCloudFileName(const std::string &prefix, const std::string &name)
+// Creats a string representing the current time in a readable format.
+// Format: month - day _ hour : min : sec
+std::string genTimeStr()
 {
   const char SEPARATOR = '_';
   const char DATE_SEPARATOR = '-';
@@ -288,32 +288,54 @@ std::string genCloudFileName(const std::string &prefix, const std::string &name)
   time_t seconds = time(NULL);
   struct tm *timeInfo = localtime(&seconds);
 
-  std::stringstream new_name;
-  new_name << prefix << SEPARATOR
-  	   << name << SEPARATOR
-           << timeInfo->tm_mon + 1 << DATE_SEPARATOR
+  std::ostringstream new_name;
+  new_name << timeInfo->tm_mon + 1 << DATE_SEPARATOR
            << timeInfo->tm_mday << SEPARATOR
 	   << timeInfo->tm_hour << TIME_SEPARATOR
 	   << timeInfo->tm_min << TIME_SEPARATOR
-	   << timeInfo->tm_sec << ".pcd";
+	   << timeInfo->tm_sec;
 
   return new_name.str();
 }
 
-// Writes each point cloud from the list of laser point clouds and the
-// single point cloud for robot position as files to specified folder.
+// Creates a directory based on prefix constant and the current time and
+// returns that name.
+std::string genOutDir()
+{
+  std::string dirName = outDirPrefix + genTimeStr();
+
+  // error occurred while creating a new directory
+  if (mkdir(dirName.c_str(), S_IRWXU | S_IRWXG) == -1) {
+    std::cout << "Error creating " << dirName << ": " << std::endl;
+    std::cout << strerror(errno) << std::endl;
+    return "";
+  }
+
+  return dirName;
+}
+
+// It creates a new ouput folder where all the point clouds will be stored.
+// The output folder has name that is based on a chosen prefix which is
+// held in the string variable outDirPrefix and the current time.
 void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
 {
+  // generate a new output directory based on current time
+  std::string outDir = genOutDir();
+  // error message already spawned by genOutDir
+  if (outDir == "") return;
+
+  std::string prefix = "";
   std::string fileName = "";
+  std::string extension = ".pcd";
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
 
   for (size_t i = 0; i < pclClients.size(); i++) {
-    // generate the cloud file corresponding to robot position
-    fileName = genCloudFileName("robot",
-	pclClients[i]->getClient()->getHost());
+    prefix = outDir + "/" + pclClients[i]->getClient()->getHost();
+    // robot position cloud filename
+    fileName = prefix + extension;
+    // write the file
     cloud = pclClients[i]->getRobotCloud();
-    pcl::io::savePCDFile(outputFolder + fileName, *cloud);
-    echo("NEW PCD FILE", fileName);
+    pcl::io::savePCDFile(fileName, *cloud);
 
     // generate cloud files corresponding to the time stamped cloud files
     std::vector<TimeStampedPCL *> *laserClouds = 
@@ -323,13 +345,13 @@ void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
 	 laserClouds->begin(); it != laserClouds->end(); it++) {
       cloud = (*it)->getCloud();
       std::ostringstream os;
-      os << j++;
-      fileName = genCloudFileName("laser" + os.str(),
-	  pclClients[i]->getClient()->getHost());
-      pcl::io::savePCDFile(outputFolder + fileName, *cloud);
-      echo("NEW PCD FILE", fileName);
+      os << (*it)->getTimeStamp();
+      fileName = prefix + "_" + os.str() + extension;
+      pcl::io::savePCDFile(fileName, *cloud);
     }
   }
+
+  std::cout << "Wrote clouds to: " << outDir << std::endl;
 }
 
 // Displays the time stamp demo in the visual window
@@ -413,7 +435,7 @@ int main(int argc, char **argv)
     writeToFileFtr(writeCloudToFile, pclClients);
 
   keyHandler.addKeyHandler('f', &writeToFileFtr);
-  echo("PRESS F TO WRITE POINT CLOUDS TO output/");
+  echo("PRESS F TO WRITE POINT CLOUDS");
 
   // Functor for initiating time stamp demo
   ArGlobalFunctor2< std::vector<PCLOutputHandler *>& ,
