@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     writeToFileFtr(writeCloudToFile, pclClients);
 
   keyHandler.addKeyHandler('f', &writeToFileFtr);
-  echo("PRESS F TO WRITE POINT CLOUDS");
+  echo("PRESS F IN TERMINAL TO WRITE POINT CLOUDS");
 
   /*
   client->logDataList();  // prints available data on server

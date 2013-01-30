@@ -228,8 +228,10 @@ void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
 
   // remember the filtered positions and display
   myRobotCloudFiltered->push_back(pointFiltered);
+#ifdef SHOW_KALMAN
   myViewer->addCloud(myRobotCloudFiltered,
       myClient->getRobotName() + std::string("robotFiltered"));
+#endif
 }
 
 // Extract laser readings from packet and update the clouds holding
