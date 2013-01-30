@@ -43,4 +43,11 @@ public:
 };
 
 
+// useful movement related function declarations
+void createMovementControls(std::vector<ArClientBase *> &clients, 
+                            ArKeyHandler &keyHandler,
+                            std::vector<MoveRobot *> &moveClients);
+void checkJoy(ArJoyHandler *joy, const std::vector<ArClientBase *> &clients);
+void joyInfoDisplay();
+
 #endif
