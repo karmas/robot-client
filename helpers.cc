@@ -4,6 +4,8 @@
 #include "ConfigFileReader.h"
 #include "OutputHandler.h"
 
+#define SIM
+
 // some message display routines
 void echo(const std::string &msg)
 {
@@ -67,12 +69,28 @@ void connectHosts(std::vector<ArClientBase *> &clients,
 {
   ArClientBase *client = NULL;
 
+#ifdef SIM
   int portNums[] = { 7272, 7273 };
+#endif
 
   for (unsigned int i = 0; i < hostsInfo.size(); i++) {
     client = new ArClientBase;
+#ifndef SIM
     client->setRobotName(createRobotName(hostsInfo[i].ip));
-    if (!client->blockingConnect(hostsInfo[i].ip, portNums[i])) {
+#else
+    echo("SIMULATOR MODE!!!");
+    char buffer[10];
+    sprintf(buffer, "sim%d", i+1);
+    client->setRobotName(buffer);
+#endif
+    if (!client->blockingConnect(hostsInfo[i].ip
+#ifndef SIM
+	  // no port number required
+#else
+	  // give your defined port numbers
+	  , portNums[i]
+#endif
+       )) {
       echo("unable to connect to", client->getRobotName());
       Aria::shutdown();
       exit(1);

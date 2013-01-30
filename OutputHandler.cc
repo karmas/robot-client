@@ -200,7 +200,7 @@ void PCLOutputHandler::updateRobotLocation(ArNetPacket *packet,
   // also display the robot position
   myRobotCloud->push_back(point);
   myViewer->addCloud(myRobotCloud, 
-      myClient->getHost() + std::string("robot"));
+      myClient->getRobotName() + std::string("robot"));
 
   filterRobotLocation(point);
 }
@@ -229,7 +229,7 @@ void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
   // remember the filtered positions and display
   myRobotCloudFiltered->push_back(pointFiltered);
   myViewer->addCloud(myRobotCloudFiltered,
-      		     myClient->getHost() + std::string("robotFiltered"));
+      myClient->getRobotName() + std::string("robotFiltered"));
 }
 
 // Extract laser readings from packet and update the clouds holding
@@ -268,7 +268,7 @@ void PCLOutputHandler::updateLaserReadings(ArNetPacket *packet,
   // Display the laser points using the aggregate cloud not the list
   // because the viewer refreshes each time a cloud is added.
   myViewer->addCloud(myLaserCloud,
-      		     myClient->getHost() + std::string("laser"));
+      		     myClient->getRobotName() + std::string("laser"));
 }
 
 // set min and max values if possible which can be later used

@@ -10,30 +10,17 @@ TimeStampedPCL::TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
   : cloud(c), timeStamp(ts) { }
 
 
-// Handle the key presses in the cloud viewer window
-// This is causing the window to hang up.
-void handleKeyboadEvents(const pcl::visualization::KeyboardEvent &keyEvent,
-    			 void *arg)
-{
-  // get the viewer
-  PCLViewer *viewer = static_cast<PCLViewer *>(arg);
-
-  if (keyEvent.getKeySym() == "t" && keyEvent.keyDown())
-    viewer->startTimeDemo();
-
-  return;
-}
-
 
 // Initialize the viewer window
 PCLViewer::PCLViewer(const std::string& title,
     		     std::vector<PCLOutputHandler *> &clients)
-  : myViewer(title), myClients(clients), myDemoState(false)
+  : myViewer(title), myClients(clients)
 {
+#ifdef PCLVISUALIZER
   myViewer.setBackgroundColor(0,0,0);
   myViewer.addCoordinateSystem(170.0);
   myViewer.initCameraParameters();
-  //myViewer.registerKeyboardCallback(handleKeyboadEvents, (void*)this);
+#endif
 }
 
 // Add a cloud or update it if it has already been added before
@@ -41,91 +28,17 @@ void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
     			 const std::string& name)
 {
   if (myViewer.wasStopped()) return;
+#ifdef PCLVISUALIZER
   // give viewer time to process events
   myViewer.spinOnce(100);
 
   if (!myViewer.updatePointCloud(cloud, name))
     myViewer.addPointCloud(cloud, name);
-
-  //myViewer.setPointCloudRenderingProperties(
-   //   pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, name);
+#else
+  myViewer.showCloud(cloud, name);
+#endif
 }
 
-// Adds cloud in the time stamped cloud.
-// Since adding a cloud refreshes the viewer, it is better to use
-// addCloud directly on an aggregate cloud then to call this function
-// for every new time stamped cloud.
-void PCLViewer::addTimeStampedCloud(TimeStampedPCL *tsCloud)
-{
-  if (myViewer.wasStopped()) return;
-  
-  // create an string id
-  std::ostringstream os;
-  os << tsCloud->getTimeStamp();
-
-  addCloud(tsCloud->getCloud(), os.str());
-}
-
-// Start demo for time stamped point clouds and suspend normal view.
-// It iterates through each point cloud.
-// Shows the point cloud.
-// Pauses.
-// Then Repeats.
-void PCLViewer::startTimeDemo()
-{
-  myDemoState = true;
-  echo("TIME STAMP DEMO MODE");
-
-  // clear the display window
-  myViewer.removeAllPointClouds();
-  myViewer.spinOnce(200);
-
-  size_t nClients = myClients.size();
-
-  // This array of pointers will be used to refer to vector of time stamped
-  // point clouds stored in each client.
-  std::vector<TimeStampedPCL *> *tsClouds[nClients];
-
-  // Go through each client.
-  for (size_t i = 0; i < nClients; i++) {
-    // Stop the data transer.
-    myClients[i]->getClient()->requestStop("getPCL");
-    // Remember the collection of time stamped point clouds
-    tsClouds[i] = myClients[i]->getLaserClouds();
-  }
-
-  // Number of time steps should be same for each client's collection so
-  // just use the first client's info
-  size_t timeSteps = tsClouds[0]->size();
-
-  // Now display point clouds from the collection in sequence with time
-  // gap.
-  for (size_t ts = 0; ts < timeSteps; ts++) {
-    for (size_t j = 0; j < nClients; j++) {
-      // for each collection, display the point cloud indexed by cloudIndex
-      addCloud((*tsClouds[j])[ts]->getCloud(), "laser");
-    }
-    ArUtil::sleep(500);
-    // clear the display window
-    myViewer.removeAllPointClouds();
-    myViewer.spinOnce(100);
-  }
-}
-
-// Stop demo for time stamped point clouds and resume normal view
-void PCLViewer::stopTimeDemo()
-{
-  myDemoState = false;
-  echo("NORMAL MODE");
-
-  // clear the display window
-  myViewer.removeAllPointClouds();
-  myViewer.spinOnce(200);
-
-  // continue data transfer
-  for (size_t i = 0; i < myClients.size(); i++)
-    myClients[i]->getClient()->request("getPCL", 1000);
-}
 
 // Return average density in given region of a point cloud.
 // MinVal holds the minimum values for the co-ordinates and maxVal
