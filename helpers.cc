@@ -150,20 +150,17 @@ std::string genTimeStr()
   return new_name.str();
 }
 
-// Creates a directory based on prefix constant and the current time and
-// returns that name.
-std::string genOutDir()
+// Creates directory based on the directory name.
+// Returns true if successful and false if failure.
+bool genDir(const std::string &dirName)
 {
-  std::string dirName = outDirPrefix + genTimeStr();
-
   // error occurred while creating a new directory
   if (mkdir(dirName.c_str(), S_IRWXU | S_IRWXG) == -1) {
     std::cout << "Error creating " << dirName << ": " << std::endl;
     std::cout << strerror(errno) << std::endl;
-    return "";
+    return false;
   }
-
-  return dirName;
+  return true;
 }
 
 // It creates a new ouput folder where all the point clouds will be stored.
@@ -172,22 +169,25 @@ std::string genOutDir()
 void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
 {
   // generate a new output directory based on current time
-  std::string outDir = genOutDir();
+  std::string outDir = outDirPrefix + genTimeStr();
   // error message already spawned by genOutDir
-  if (outDir == "") return;
+  if (!genDir(outDir)) return;
 
-  std::string prefix = "";
-  std::string fileName = "";
+  std::string subDir("");
+  std::string filePath = "";
   std::string extension = ".pcd";
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
 
   for (size_t i = 0; i < pclClients.size(); i++) {
-    prefix = outDir + "/" + pclClients[i]->getClient()->getHost();
+    // first create sub directory for each client robot
+    subDir = outDir + "/" + pclClients[i]->getClient()->getRobotName();
+    if (!genDir(subDir)) return;
+
     // robot position cloud filename
-    fileName = prefix + extension;
+    filePath = subDir + "/" + "path" + extension;
     // write the file
     cloud = pclClients[i]->getRobotCloud();
-    pcl::io::savePCDFile(fileName, *cloud);
+    pcl::io::savePCDFile(filePath, *cloud);
 
     // generate cloud files corresponding to the time stamped cloud files
     std::vector<TimeStampedPCL *> *laserClouds = 
@@ -198,8 +198,8 @@ void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
       cloud = (*it)->getCloud();
       std::ostringstream os;
       os << (*it)->getTimeStamp();
-      fileName = prefix + "_" + os.str() + extension;
-      pcl::io::savePCDFile(fileName, *cloud);
+      filePath = subDir + "/" + os.str() + extension;
+      pcl::io::savePCDFile(filePath, *cloud);
     }
   }
 

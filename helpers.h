@@ -27,7 +27,7 @@ void createPCLReceivers(std::vector<ArClientBase *> &clients,
 			std::vector<HostInfo> &hostsInfo);
 void startClients(std::vector<ArClientBase *> clients);
 std::string genTimeStr();
-std::string genOutDir();
+bool genDir(const std::string &dirName);
 void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients);
 
 #endif
