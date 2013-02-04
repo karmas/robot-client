@@ -5,8 +5,7 @@
 #include "OutputHandler.h"
 
 
-TimeStampedPCL::TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c,
-			       long ts)
+TimeStampedPCL::TimeStampedPCL(MyCloud::Ptr c, long ts)
   : cloud(c), timeStamp(ts) { }
 
 
@@ -24,8 +23,7 @@ PCLViewer::PCLViewer(const std::string& title,
 }
 
 // Add a cloud or update it if it has already been added before
-void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
-    			 const std::string& name)
+void PCLViewer::addCloud(MyCloud::Ptr cloud, const std::string& name)
 {
   if (myViewer.wasStopped()) return;
 #ifdef PCLVISUALIZER
@@ -45,7 +43,7 @@ void PCLViewer::addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
 // holds the maximum values. These two points represent the furthest
 // points in a cuboid region of space.
 // Also uses the given divison value to convert to required units
-double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
+double calcRegionDensity(MyCloud::Ptr cloud,
     			 const MyPoint &minVal, const MyPoint &maxVal,
 			 int divisor)
 {
@@ -88,17 +86,14 @@ double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
 }
 
 // Perform voxel filter and return filtered cloud
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr
-voxelFilter(pcl::PointCloud<pcl::PointXYZRGB>::Ptr source,
-    	    const MyPoint &leafSize)
+MyCloud::Ptr voxelFilter(MyCloud::Ptr source, const MyPoint &leafSize)
 {
   // this object performs the filtering
-  pcl::VoxelGrid<pcl::PointXYZRGB> voxelGrid;
+  pcl::VoxelGrid<MyPoint> voxelGrid;
   voxelGrid.setLeafSize(leafSize.x, leafSize.y, leafSize.z);
 
   // filtered cloud is stored here
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
-    filteredCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+  MyCloud::Ptr filteredCloud(new MyCloud);
 
   // filter and set to the filtered cloud
   voxelGrid.setInputCloud(source);

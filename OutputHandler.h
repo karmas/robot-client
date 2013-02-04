@@ -27,22 +27,18 @@ public:
 
   void handleUpdateInfo(ArNetPacket *packet);
   void handleSensorInfo(ArNetPacket *packet);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr getRobotCloud() {
-    return myRobotCloud;
-  }
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr getRobotCloudFiltered() {
-    return myRobotCloudFiltered;
-  }
+  MyCloud::Ptr getRobotCloud() { return myRobotCloud; }
+  MyCloud::Ptr getRobotCloudFiltered() { return myRobotCloudFiltered; }
   ArClientBase *getClient() { return myClient; }
 
 protected:
   std::vector<RobotInfo *> myRobotInfos;
   ArClientBase *myClient;
   PCLViewer *myViewer;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr myRobotCloud;
+  MyCloud::Ptr myRobotCloud;
   int myRobotColor;
   MyPoint myVoxelLeaf;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr myRobotCloudFiltered;
+  MyCloud::Ptr myRobotCloudFiltered;
   cv::KalmanFilter *kalmanFilter;
 
   static const int myDensityDivisor;
@@ -66,9 +62,7 @@ public:
   std::vector<TimeStampedPCL *> *getLaserClouds() {
     return &myLaserClouds;
   }
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr getLaserCloud() {
-    return myLaserCloud;
-  }
+  MyCloud::Ptr getLaserCloud() { return myLaserCloud; }
 
 private:
   std::vector<TimeStampedPCL *> myLaserClouds;
@@ -76,7 +70,7 @@ private:
   // CloudViewer is refreshed each time a new cloud is added to it.
   // If we added each new cloud to the viewer, it would keep refreshing.
   // To remedy this, a separate cloud is needed to store all the points.
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr myLaserCloud;
+  MyCloud::Ptr myLaserCloud;
   ArFunctor1C<PCLOutputHandler, ArNetPacket *> handlePCLdataftr;
   int myColor;
   int myXoffset;
@@ -86,20 +80,20 @@ private:
   MyPoint myMinVals;
   MyPoint myMaxVals;
 
-  void setMinMax(const pcl::PointXYZRGB &point);
+  void setMinMax(const MyPoint &point);
   void printClouds();
   void updateRobotLocation(ArNetPacket *packet, long timeStamp);
   void updateLaserReadings(ArNetPacket *packet, long timeStamp);
-  void filterRobotLocation(pcl::PointXYZRGB &measured);
+  void filterRobotLocation(MyPoint &measured);
 };
 
 
 // Some helpful functions
 
-double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
+double calcRegionDensity(MyCloud::Ptr cloud,
     			 const MyPoint &minVal, const MyPoint &maxVal,
 			 int divisor);
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr
-voxelFilter(pcl::PointCloud<pcl::PointXYZRGB>::Ptr source,
+MyCloud::Ptr
+voxelFilter(MyCloud::Ptr source,
     	    const MyPoint &leafSize);
 #endif

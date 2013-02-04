@@ -23,9 +23,9 @@ const int OutputHandler::myDensityDivisor = 100;
 OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
     			     int robotColor)
   : myClient(client), myViewer(viewer),
-    myRobotCloud(new pcl::PointCloud<pcl::PointXYZRGB>),
+    myRobotCloud(new MyCloud),
     myRobotColor(robotColor),
-    myRobotCloudFiltered(new pcl::PointCloud<pcl::PointXYZRGB>),
+    myRobotCloudFiltered(new MyCloud),
     kalmanFilter(
 	new cv::KalmanFilter(stateDims, measurementDims)),
     handleUpdateInfoftr(this, &OutputHandler::handleUpdateInfo),
@@ -99,7 +99,7 @@ void OutputHandler::handleUpdateInfo(ArNetPacket *packet)
   int yPosition = (double)packet->bufToByte4();
   //int theta = (double)packet->bufToByte2();
 
-  pcl::PointXYZRGB point;
+  MyPoint point;
   point.x = static_cast<float>(xPosition);
   point.y = static_cast<float>(yPosition);
   point.z = 0.0;
@@ -136,7 +136,7 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
     PCLViewer *viewer, int robotColor,
     int color, int xo, int yo, int to, int rf)
   : OutputHandler(client, viewer, robotColor),
-    myLaserCloud(new pcl::PointCloud<pcl::PointXYZRGB>),
+    myLaserCloud(new MyCloud),
     handlePCLdataftr(this, &PCLOutputHandler::handlePCLdata),
     myColor(color),
     myXoffset(xo), myYoffset(yo), myThetaOffset(to),
@@ -184,7 +184,7 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 void PCLOutputHandler::updateRobotLocation(ArNetPacket *packet,
     long timeStamp)
 {
-  pcl::PointXYZRGB point;
+  MyPoint point;
   // get robot location from packet
   // but add offset to translate to global co-ordinates
   point.x = static_cast<float>(packet->bufToDouble()) + myXoffset;
@@ -206,7 +206,7 @@ void PCLOutputHandler::updateRobotLocation(ArNetPacket *packet,
 }
 
 // kalman filtering of robot position
-void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
+void PCLOutputHandler::filterRobotLocation(MyPoint &measured)
 {
   kalmanFilter->predict();	// perform prediction
 
@@ -220,7 +220,7 @@ void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
   state = kalmanFilter->correct(measurement);
 
   // retreive state values and give it white color for display
-  pcl::PointXYZRGB pointFiltered;
+  MyPoint pointFiltered;
   pointFiltered.x = state.at<float>(0);
   pointFiltered.y = state.at<float>(1);
   pointFiltered.z = 0;
@@ -239,9 +239,8 @@ void PCLOutputHandler::filterRobotLocation(pcl::PointXYZRGB &measured)
 void PCLOutputHandler::updateLaserReadings(ArNetPacket *packet, 
     long timeStamp)
 {
-  pcl::PointXYZRGB point;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
-    tempLaserCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+  MyPoint point;
+  MyCloud::Ptr tempLaserCloud(new MyCloud);
 
   // get number of laser readings
   int nPoints = packet->bufToByte4();
@@ -275,7 +274,7 @@ void PCLOutputHandler::updateLaserReadings(ArNetPacket *packet,
 
 // set min and max values if possible which can be later used
 // to get volume of the region scanned
-void PCLOutputHandler::setMinMax(const pcl::PointXYZRGB &point)
+void PCLOutputHandler::setMinMax(const MyPoint &point)
 {
   static bool firstTime = true;
 
@@ -301,7 +300,7 @@ void PCLOutputHandler::printClouds()
 {
   echo("printing all clouds");
   TimeStampedPCL *curr = NULL;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+  MyCloud::Ptr cloud;
 
   for (size_t i = 0; i < myLaserClouds.size() && i < 2; i++) {
     curr = myLaserClouds[i];

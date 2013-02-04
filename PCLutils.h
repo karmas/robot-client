@@ -11,16 +11,14 @@
 // forward declarations
 class PCLOutputHandler;
 
-// just to aggregate data
-struct MyPoint {
-  float x, y, z;
-};
+typedef pcl::PointXYZRGB MyPoint;
+typedef pcl::PointCloud<MyPoint> MyCloud;
 
 // group robot position, heading and timestamp
 struct RobotInfo {
-  RobotInfo(const pcl::PointXYZRGB &pt, long ts, double h)
+  RobotInfo(const MyPoint &pt, long ts, double h)
     : point(pt), timeStamp(ts), th(h) { }
-  pcl::PointXYZRGB point;
+  MyPoint point;
   long timeStamp;
   double th;	// heading in degrees
 };
@@ -28,12 +26,12 @@ struct RobotInfo {
 // a time stamped point cloud
 class TimeStampedPCL {
 public:
-  TimeStampedPCL(pcl::PointCloud<pcl::PointXYZRGB>::Ptr c, long ts);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr getCloud() { return cloud; }
+  TimeStampedPCL(MyCloud::Ptr c, long ts);
+  MyCloud::Ptr getCloud() { return cloud; }
   long getTimeStamp() { return timeStamp; }
 
 private:
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+  MyCloud::Ptr cloud;
   long timeStamp;
 
   // make copying illegal
@@ -49,7 +47,7 @@ public:
   PCLViewer(const std::string& title,
       	    std::vector<PCLOutputHandler *> &clients); 
   ~PCLViewer() {}
-  void addCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
+  void addCloud(MyCloud::Ptr cloud,
       		const std::string& name);
 
 private:
@@ -67,12 +65,10 @@ private:
 
 // Some helpful functions
 
-double calcRegionDensity(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
+double calcRegionDensity(MyCloud::Ptr cloud,
     			 const MyPoint &minVal, const MyPoint &maxVal,
 			 int divisor);
-pcl::PointCloud<pcl::PointXYZRGB>::Ptr
-voxelFilter(pcl::PointCloud<pcl::PointXYZRGB>::Ptr source,
-    	    const MyPoint &leafSize);
+MyCloud::Ptr voxelFilter(MyCloud::Ptr source, const MyPoint &leafSize);
 
 
 #endif

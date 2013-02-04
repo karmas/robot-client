@@ -180,7 +180,7 @@ void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
   std::string subDir("");
   std::string filePath = "";
   std::string extension = ".pcd";
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+  MyCloud::Ptr cloud;
 
   for (size_t i = 0; i < pclClients.size(); i++) {
     // first create sub directory for each client robot
