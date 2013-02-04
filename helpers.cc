@@ -196,7 +196,6 @@ void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
     // generate cloud files corresponding to the time stamped cloud files
     std::vector<TimeStampedPCL *> *laserClouds = 
       pclClients[i]->getLaserClouds();
-    int j = 0;
     for (std::vector<TimeStampedPCL *>::const_iterator it =
 	 laserClouds->begin(); it != laserClouds->end(); it++) {
       cloud = (*it)->getCloud();

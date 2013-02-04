@@ -30,6 +30,9 @@ link_directories(${PCL_LIBRARY_DIRS})
 #add_definitions(${PCL_DEFINITIONS})
 # OpenCV libraries are in default location
 
+# C++ flags
+#set(CMAKE_CXX_FLAGS -Wall)
+
 # Create the executable
 add_executable(${PROG} ${SRC})
 

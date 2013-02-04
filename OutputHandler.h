@@ -88,12 +88,4 @@ private:
 };
 
 
-// Some helpful functions
-
-double calcRegionDensity(MyCloud::Ptr cloud,
-    			 const MyPoint &minVal, const MyPoint &maxVal,
-			 int divisor);
-MyCloud::Ptr
-voxelFilter(MyCloud::Ptr source,
-    	    const MyPoint &leafSize);
 #endif
