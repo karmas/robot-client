@@ -4,7 +4,6 @@
 #include "ConfigFileReader.h"
 #include "OutputHandler.h"
 
-//#define SIM
 
 // some message display routines
 void echo(const std::string &msg)
@@ -53,13 +52,11 @@ void escapePressed()
 
 // used to create a name of form botxxx where xxx is the last 3 digits
 // of the IP address
-const char *createRobotName(const char *IP)
+const char *createRobotName(const HostInfo &hostInfo)
 {
-  std::string ip = IP;
-  int suffixStart = ip.rfind(".") + 1;
-  std::string suffix = ip.substr(suffixStart);
-  std::string name = "bot" + suffix;
-  return name.c_str();
+  char nameBuffer[100];
+  sprintf(nameBuffer, "robot_%s_%d", hostInfo.ip, hostInfo.port);
+  return strdup(nameBuffer);
 }
 
 // Connects to each IP address in hostsIP.
@@ -69,32 +66,11 @@ void connectHosts(std::vector<ArClientBase *> &clients,
 {
   ArClientBase *client = NULL;
 
-#ifndef SIM
-  const int defaultPort = 7272;
-#else
-  // your own port numbers should be here
-  const int portNums[] = { 7272, 7273 };
-#endif
-
   for (unsigned int i = 0; i < hostsInfo.size(); i++) {
     client = new ArClientBase;
-#ifndef SIM
-    client->setRobotName(createRobotName(hostsInfo[i].ip));
-#else
-    echo("SIMULATOR MODE!!!");
-    char buffer[10];
-    sprintf(buffer, "sim%d", i+1);
-    client->setRobotName(buffer);
-#endif
+    client->setRobotName(createRobotName(hostsInfo[i]));
 
-    if (!client->blockingConnect(hostsInfo[i].ip,
-#ifndef SIM
-	  defaultPort
-#else
-	  portNums[i]
-#endif
-       )) {
-
+    if (!client->blockingConnect(hostsInfo[i].ip, hostsInfo[i].port)) {
       echo("unable to connect to", client->getRobotName());
       Aria::shutdown();
       exit(1);

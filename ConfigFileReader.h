@@ -12,10 +12,12 @@ struct TransformInfo {
 
 // information about each host which is a server running on a robot
 struct HostInfo {
-  HostInfo(const char *ipa, int loc, int lac, TransformInfo ti, int rf)
-    : ip(ipa), locationColor(loc), laserColor(lac),
+  HostInfo(const char *ipa, int p, int loc, int lac, 
+      TransformInfo ti, int rf)
+    : ip(ipa), port(p), locationColor(loc), laserColor(lac),
       transformInfo(ti), requestFreq(rf) { }
   const char *ip;
+  int port;
   int locationColor;
   int laserColor;
   TransformInfo transformInfo;
@@ -26,7 +28,7 @@ struct HostInfo {
 class ConfigFileReader {
 public:
   ConfigFileReader(int c, char **v, ArArgumentParser *parser)
-    : myArgc(c), myArgv(v), myParser(parser), fileType(-1) { }
+    : myArgc(c), myArgv(v), myParser(parser) { }
   void readHostsFile(std::vector<HostInfo> &hostsInfo);
   static void printInfoFields();
 
@@ -34,16 +36,15 @@ public:
   static const char *hostsFileHeader;
   static const char *infoFields[];
   static const size_t infoFieldTypes;
-  static const int hostsFileTypes = 4;
   static const char myCommentChar = '#';
   static const char *myFieldSeparator;
   static const char *mySubFieldSeparator;
+  static const int myDefaultPort = 7272;
 
 private:
   int myArgc;
   char **myArgv;
   ArArgumentParser *myParser;
-  int fileType;
 
   int checkFileArg();
   std::ifstream *getFieldTypes(std::vector<size_t> &fieldTypes);

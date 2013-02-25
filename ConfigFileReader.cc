@@ -17,6 +17,7 @@ const char *ConfigFileReader::hostsFileHeader = "servers 1.0";
 // this are the valid fields
 const char *ConfigFileReader::infoFields[] = {
   "ip",
+  "port",
   "locationColor",
   "laserColor",
   "transformInfo",
@@ -146,7 +147,7 @@ void ConfigFileReader::getIntSubFields(const std::string &s,
 void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
 {
   // store current host info
-  HostInfo currHostInfo(NULL, 0, 0, TransformInfo(0,0,0), 0);
+  HostInfo currHostInfo(NULL, 0, 0, 0, TransformInfo(0,0,0), 0);
 
   std::string line;
   std::string field;
@@ -162,6 +163,7 @@ void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
   while (file->good()) {
     // refresh host info to default
     currHostInfo = HostInfo(NULL,	// ip address
+			    myDefaultPort,// port number
 			    rgba(200,0,0),// location color
 			    rgba(0,200,0),// laser data color
 			    TransformInfo(0,0,0),
@@ -188,22 +190,25 @@ void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
 	case 0:		// ip address
 	  currHostInfo.ip = strdup(field.c_str());
 	  break;
-	case 1:		// location color
+	case 1:		// port number
+	  currHostInfo.port = atoi(field.c_str());
+	  break;
+	case 2:		// location color
 	  getIntSubFields(field, subFields);
 	  currHostInfo.locationColor = 
 	    rgba(subFields[0], subFields[1], subFields[2]);
 	  break;
-	case 2:		// laser data color
+	case 3:		// laser data color
 	  getIntSubFields(field, subFields);
 	  currHostInfo.laserColor = 
 	    rgba(subFields[0], subFields[1], subFields[2]);
 	  break;
-	case 3:		// transformation info
+	case 4:		// transformation info
 	  getIntSubFields(field, subFields);
 	  currHostInfo.transformInfo = 
 	    TransformInfo(subFields[0], subFields[1], subFields[2]);
 	  break;
-	case 4:		// request frequency in milliseconds
+	case 5:		// request frequency in milliseconds
 	  currHostInfo.requestFreq = atoi(field.c_str());
 	  break;
 	default:
@@ -215,6 +220,7 @@ void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
 #define debug
 #ifdef debug
     echo("ip address", currHostInfo.ip);
+    echo("port number", currHostInfo.port);
     echo("location color", currHostInfo.locationColor);
     echo("laser color", currHostInfo.laserColor);
     echo("x offset", currHostInfo.transformInfo.xOffset);
