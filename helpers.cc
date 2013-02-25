@@ -208,3 +208,31 @@ void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
 
   std::cout << "Wrote clouds to: " << outDir << std::endl;
 }
+
+// The first time this function is run, a starting time is set.
+// Further calls return the time elapsed from that start time.
+// This is necessary to get smaller values for time so that
+// millisecond precision can be packet into the same data.
+// Hence first packet is marked with time value of 0.
+long getElapsedTime()
+{
+  static timeval startTime;
+  timeval currTime;
+  static bool firstTime = true;
+
+  // set the start time
+  if (firstTime) {
+    firstTime = false;
+    gettimeofday(&startTime, NULL);
+    return 0;
+  }
+  else {
+    gettimeofday(&currTime, NULL);
+    long secondsPassed = currTime.tv_sec - startTime.tv_sec;
+    // first get milliseconds
+    long milliSecondsPassed = currTime.tv_usec/1000;
+    // add the seconds passed to it
+    milliSecondsPassed += secondsPassed*1000;
+    return milliSecondsPassed;
+  }
+}

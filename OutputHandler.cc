@@ -167,7 +167,7 @@ PCLOutputHandler::~PCLOutputHandler()
 // is displayed in a viewer.
 void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 {
-  long timeStamp = packet->bufToByte4();
+  long timeStamp = getElapsedTime();
   updateRobotLocation(packet, timeStamp);
   updateLaserReadings(packet, timeStamp);
 
