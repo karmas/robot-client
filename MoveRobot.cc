@@ -1,12 +1,46 @@
 #include <iostream>
+#include <iomanip>
 
 #include "MoveRobot.h"
 #include "helpers.h"
 
+// these keys control the movement of the robot
+int MoveRobot::moveKeys[] = { 
+  ArKeyHandler::UP,
+  ArKeyHandler::DOWN,
+  ArKeyHandler::LEFT,
+  ArKeyHandler::RIGHT,
+  'a',
+  'd',
+  's',
+  ArKeyHandler::PAGEUP,
+  ArKeyHandler::PAGEDOWN,
+  'q',
+  'w',
+  'f',
+  'g',
+};
+// information on what kind of movement the corresponding key performs
+const char *MoveRobot::moveKeysInfo[] = {
+  "move forward",
+  "move backward",
+  "rotate left",
+  "rotate right",
+  "auto mode",
+  "drive mode",
+  "stop mode",
+  "control previous robot",
+  "control next robot",
+  "all auto mode",
+  "all stop mode",
+  "safe drive",
+  "unsafe drive",
+};
 
-MoveRobot::MoveRobot(ArClientBase *client, ArKeyHandler *keyHandler,
-                     int *moveKeys)
-  : myClient(client), myKeyHandler(keyHandler), myMoveKeys(moveKeys),
+MoveRobot::MoveRobot(ArKeyHandler *keyHandler,
+    		     std::vector<ArClientBase *> &clients)
+  : myKeyHandler(keyHandler), myClients(clients),
+    myClient(clients[0]), myClientIndex(0),
     manMode(false), myTransRatio(0.0), myRotRatio(0.0),
     upftr(this, &MoveRobot::up),
     downftr(this, &MoveRobot::down),
@@ -14,7 +48,13 @@ MoveRobot::MoveRobot(ArClientBase *client, ArKeyHandler *keyHandler,
     rightftr(this, &MoveRobot::right),
     autoMoveftr(this, &MoveRobot::autoMove),
     manMoveftr(this, &MoveRobot::manMove),
-    stopMoveftr(this, &MoveRobot::stopMove)
+    stopMoveftr(this, &MoveRobot::stopMove),
+    prevRobotftr(this, &MoveRobot::prevRobot),
+    nextRobotftr(this, &MoveRobot::nextRobot),
+    allAutoMoveftr(this, &MoveRobot::allAutoMove),
+    allStopMoveftr(this, &MoveRobot::allStopMove),
+    safeDriveftr(this, &MoveRobot::safeDrive),
+    unSafeDriveftr(this, &MoveRobot::unSafeDrive)
 {
   myKeyHandler->addKeyHandler(moveKeys[0], &upftr);
   myKeyHandler->addKeyHandler(moveKeys[1], &downftr);
@@ -23,6 +63,12 @@ MoveRobot::MoveRobot(ArClientBase *client, ArKeyHandler *keyHandler,
   myKeyHandler->addKeyHandler(moveKeys[4], &autoMoveftr);
   myKeyHandler->addKeyHandler(moveKeys[5], &manMoveftr);
   myKeyHandler->addKeyHandler(moveKeys[6], &stopMoveftr);
+  myKeyHandler->addKeyHandler(moveKeys[7], &prevRobotftr);
+  myKeyHandler->addKeyHandler(moveKeys[8], &nextRobotftr);
+  myKeyHandler->addKeyHandler(moveKeys[9], &allAutoMoveftr);
+  myKeyHandler->addKeyHandler(moveKeys[10], &allStopMoveftr);
+  myKeyHandler->addKeyHandler(moveKeys[11], &safeDriveftr);
+  myKeyHandler->addKeyHandler(moveKeys[12], &unSafeDriveftr);
   displayKeys();
 }
 
@@ -32,27 +78,55 @@ MoveRobot::~MoveRobot()
   myClient->requestOnce("stop");
 }
 
+static std::string moveKeyToString(int c)
+{
+  std::string keyName;
+  switch (c) {
+    case ArKeyHandler::UP:
+      keyName = "UP arrow";
+      break;
+    case ArKeyHandler::DOWN:
+      keyName = "DOWN arrow";
+      break;
+    case ArKeyHandler::LEFT:
+      keyName = "LEFT arrow";
+      break;
+    case ArKeyHandler::RIGHT:
+      keyName = "RIGHT arrow";
+      break;
+    case ArKeyHandler::PAGEUP:
+      keyName = "PAGEUP arrow";
+      break;
+    case ArKeyHandler::PAGEDOWN:
+      keyName = "PAGEDOWN arrow";
+      break;
+    default:
+      keyName = char(c);
+      break;
+  }
+  return keyName;
+}
+
 // Tell the user about the control keys
 void MoveRobot::displayKeys() 
 {
-  std::string keyDesc[] = {
-    "move up", "move down", "move left", "move right", 
-    "auto mode", "drive mode", "stop mode"
-  };
+  const int leftMargin = 5;
+  const int keyColWidth = 20;
+  const int descColWidth = 30;
 
-  std::string keyName[] = {
-    "UP", "DOWN", "LEFT", "RIGHT", "ESCAPE", "SPACE"
-  };
+  std::cout << std::endl << "Keyboard controls" << std::endl;
+  std::cout << std::setw(leftMargin) << "|"
+    << std::setw(keyColWidth) << "Key" 
+    << std::setw(descColWidth) << "Description" 
+    << std::endl
+    << std::string(60, '-')
+    << std::endl;
 
-  std::cout << std::endl << myClient->getRobotName() 
-    << " control keys" << std::endl;
-
-  for (int i = 0; i < myNumKeys; i++) {
-    int c = myMoveKeys[i];
-    if (c < 256)
-      std::cout << keyDesc[i] << " = " << (char) c << std::endl;
-    else
-      std::cout << keyDesc[i] << " = " << keyName[c - 256] << std::endl;
+  for (int i = 0; i < sizeof(moveKeys)/sizeof(moveKeys[0]); i++) {
+  std::cout << std::setw(leftMargin) << "|"
+    << std::setw(keyColWidth) << moveKeyToString(moveKeys[i])
+    << std::setw(descColWidth) << moveKeysInfo[i]
+    << std::endl;
   }
 
   std::cout << std::endl;
@@ -117,27 +191,67 @@ void MoveRobot::sendInput()
   myRotRatio = 0;
 }
 
-
-// Attach keyboard handling to the clients
-void createMovementControls(std::vector<ArClientBase *> &clients, 
-                            ArKeyHandler &keyHandler,
-                            std::vector<MoveRobot *> &moveClients)
+// select the previous robot in case of multiple robots
+void MoveRobot::prevRobot()
 {
-  int ClientKeys[] = { ArKeyHandler::UP, ArKeyHandler::DOWN,
-		       ArKeyHandler::LEFT, ArKeyHandler::RIGHT,
-		       'a', 'd', 's' };
-  int CloneKeys[] = { 'i', 'k', 'j', 'l', 'q', 'e', 'w' };
-
-  MoveRobot *moveHandler = NULL;
-
-  for (unsigned int i = 0; i < clients.size(); i++) {
-    if (i == 0)
-      moveHandler = new MoveRobot(clients[i], &keyHandler, ClientKeys);
-    else
-      moveHandler = new MoveRobot(clients[i], &keyHandler, CloneKeys);
-    moveClients.push_back(moveHandler);
-  }
+  if (myClientIndex == 0) 
+    myClientIndex = myClients.size() - 1;
+  else
+    myClientIndex--;
+  myClient = myClients[myClientIndex];
+  echo("keyboard controls", myClient->getRobotName());
 }
+
+// select the next robot in case of multiple robots
+void MoveRobot::nextRobot()
+{
+  myClientIndex++;
+  if (myClientIndex >= myClients.size()) 
+    myClientIndex = 0;
+  myClient = myClients[myClientIndex];
+  echo("keyboard controls", myClient->getRobotName());
+}
+
+// all robots in automatic mode
+void MoveRobot::allAutoMove()
+{
+  echo("ALL ROBOTS IN AUTO MODE");
+  for (unsigned int i = 0; i < myClients.size(); i++)
+    myClients[i]->requestOnce("wander");
+}
+
+// all robots in stop mode
+void MoveRobot::allStopMove()
+{
+  echo("ALL ROBOTS IN STOP MODE");
+  for (unsigned int i = 0; i < myClients.size(); i++)
+    myClients[i]->requestOnce("stop");
+}
+
+// safe driving robot
+void MoveRobot::safeDrive()
+{
+  if (!myClient->dataExists("setSafeDrive")) return;
+  else std::cout << "\t" << myClient->getRobotName() 
+    << " safe drive" << std::endl;
+
+  ArNetPacket packet;
+  packet.byteToBuf(1);
+  myClient->requestOnce("setSafeDrive", &packet);
+}
+
+// not a safe driving robot
+void MoveRobot::unSafeDrive()
+{
+  if (!myClient->dataExists("setSafeDrive")) return;
+  else std::cout << "\t" << myClient->getRobotName() 
+    << " unsafe drive" << std::endl;
+
+  ArNetPacket packet;
+  packet.byteToBuf(0);
+  myClient->requestOnce("setSafeDrive", &packet);
+}
+
 
 
 // Check for keys pressed on joystick and orientation of the stick

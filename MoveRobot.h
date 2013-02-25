@@ -10,8 +10,8 @@
 // moveKeys [] = { up, down, left, right, auto, manual, stop }
 class MoveRobot {
 public:
-  MoveRobot(ArClientBase *client, ArKeyHandler *keyHandler,
-            int *moveKeys);
+  MoveRobot(ArKeyHandler *keyHandler, 
+            std::vector<ArClientBase *> &clients);
   ~MoveRobot();
   void displayKeys();
   void up();
@@ -21,15 +21,23 @@ public:
   void autoMove();
   void manMove();
   void stopMove();
+  void prevRobot();
+  void nextRobot();
+  void allAutoMove();
+  void allStopMove();
+  void safeDrive();
+  void unSafeDrive();
   void sendInput();
 
-  static const int myNumKeys = 7;
+  static int moveKeys[];
+  static const char *moveKeysInfo[];
 
-  ArClientBase *myClient;
   ArKeyHandler *myKeyHandler;
-  int *myMoveKeys;
+  std::vector<ArClientBase *> &myClients;
 
   bool manMode;
+  ArClientBase *myClient;
+  int myClientIndex;
   double myTransRatio;
   double myRotRatio;
 
@@ -40,13 +48,18 @@ public:
   ArFunctorC<MoveRobot> autoMoveftr;
   ArFunctorC<MoveRobot> manMoveftr;
   ArFunctorC<MoveRobot> stopMoveftr;
+  ArFunctorC<MoveRobot> prevRobotftr;
+  ArFunctorC<MoveRobot> nextRobotftr;
+  ArFunctorC<MoveRobot> allAutoMoveftr;
+  ArFunctorC<MoveRobot> allStopMoveftr;
+  ArFunctorC<MoveRobot> safeDriveftr;
+  ArFunctorC<MoveRobot> unSafeDriveftr;
+
+  static void chooseMoveKeys();
 };
 
 
 // useful movement related function declarations
-void createMovementControls(std::vector<ArClientBase *> &clients, 
-                            ArKeyHandler &keyHandler,
-                            std::vector<MoveRobot *> &moveClients);
 void checkJoy(ArJoyHandler *joy, const std::vector<ArClientBase *> &clients);
 void joyInfoDisplay();
 

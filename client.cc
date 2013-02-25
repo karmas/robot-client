@@ -50,8 +50,6 @@ int main(int argc, char **argv)
   std::vector<HostInfo> hostsInfo;
   // list of clients to connect to each server
   std::vector<ArClientBase *> clients;
-  // list of input handler objects for clients
-  std::vector<MoveRobot *> moveClients;
   // list of output handler objects for clients
   std::vector<PCLOutputHandler *> pclClients;
 
@@ -84,8 +82,8 @@ int main(int argc, char **argv)
   ArGlobalFunctor escapeftr(&escapePressed);
   keyHandler.addKeyHandler(ArKeyHandler::ESCAPE, &escapeftr);
 
-  // give each client keys for controlling server robot
-  createMovementControls(clients, keyHandler, moveClients);
+  // keyboard movement controls
+  MoveRobot moveRobot(&keyHandler, clients);
 
   // joystick support for client one
   ArJoyHandler joyHandler;
@@ -129,11 +127,7 @@ int main(int argc, char **argv)
     keyHandler.checkKeys();
     // 1st client gets joystick handling
     if (joySupport) checkJoy(&joyHandler, clients);
-    // cycle through all clients and check if they are in drive mode
-    // if so then send drive instructions
-    for (unsigned int i = 0; i < clients.size(); i++) {
-      if (moveClients[i]->manMode) moveClients[i]->sendInput();
-    }
+    if (moveRobot.manMode) moveRobot.sendInput();
     ArUtil::sleep(100);
   }
 
