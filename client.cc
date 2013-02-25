@@ -26,7 +26,7 @@
  * go left         left arrow    'j'
  * go right        right arrow   'l'
  *
- * Press 'f' to create a pcd file of the current point cloud
+ * Press 'p' to create a pcd file of the current point cloud
  */
 
 #include <cstdio>
@@ -111,8 +111,8 @@ int main(int argc, char **argv)
   ArGlobalFunctor1< std::vector<PCLOutputHandler *>& >
     writeToFileFtr(writeCloudToFile, pclClients);
 
-  keyHandler.addKeyHandler('f', &writeToFileFtr);
-  echo("PRESS F IN TERMINAL TO WRITE POINT CLOUDS");
+  keyHandler.addKeyHandler('p', &writeToFileFtr);
+  echo("PRESS P IN TERMINAL TO WRITE POINT CLOUDS");
 
   /*
   client->logDataList();  // prints available data on server
