@@ -380,20 +380,37 @@ void checkJoy(ArJoyHandler *joy, const std::vector<ArClientBase *> &clients)
 // Display joystick controls
 void joyInfoDisplay()
 {
-  std::string keyDesc[] = {
+  std::string moveKeysInfo[] = {
     "move up", "move down", "move left", "move right", 
     "auto mode", "drive mode", "stop mode", "select previous robot",
     "select next robot", "auto all robots", "stop all robots",
     "safe drive", "unsafe drive"
   };
 
-  std::string keyName[] = {
+  std::string moveKeys[] = {
     "JOYSTICK UP", "JOYSTICK DOWN", "JOYSTICK LEFT", "JOYSTICK RIGHT", 
     "BUTTON 3", "TRIGGER", "BUTTON 2", "BUTTON 4", "BUTTON 5",
     "BUTTON 6", "BUTTON 7", "BUTTON 8", "BUTTON 9"
   };
 
-  for (unsigned int i = 0; i < sizeof(keyDesc)/sizeof(keyDesc[0]); i++)
-    std::cout << keyDesc[i] << " = " << keyName[i] << std::endl;
+  const int leftMargin = 5;
+  const int keyColWidth = 20;
+  const int descColWidth = 30;
+
+  std::cout << std::endl << "Joystick controls" << std::endl;
+  std::cout << std::setw(leftMargin) << "|"
+    << std::setw(keyColWidth) << "Key" 
+    << std::setw(descColWidth) << "Description" 
+    << std::endl
+    << std::string(60, '-')
+    << std::endl;
+
+  for (int i = 0; i < sizeof(moveKeys)/sizeof(moveKeys[0]); i++) {
+  std::cout << std::setw(leftMargin) << "|"
+    << std::setw(keyColWidth) << moveKeys[i]
+    << std::setw(descColWidth) << moveKeysInfo[i]
+    << std::endl;
+  }
+
   std::cout << std::endl;
 }
