@@ -132,6 +132,10 @@ void OutputHandler::handleSensorInfo(ArNetPacket *packet)
 
 
 
+const double PCLOutputHandler::pi = 3.14159165f;
+const double PCLOutputHandler::toRadian = pi/180;
+
+
 PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
     PCLViewer *viewer, int robotColor,
     int color, int xo, int yo, int to, int rf)
@@ -140,7 +144,9 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
     handlePCLdataftr(this, &PCLOutputHandler::handlePCLdata),
     myColor(color),
     myXoffset(xo), myYoffset(yo), myThetaOffset(to),
-    myRequestFreq(rf)
+    myRequestFreq(rf),
+    myCosTheta(cos(myThetaOffset*toRadian)),
+    mySinTheta(sin(myThetaOffset*toRadian))
 {
   // initial state is robot's starting pose
   kalmanFilter->statePost.at<float>(0) = 0 + myXoffset;
@@ -184,13 +190,23 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 void PCLOutputHandler::updateRobotLocation(ArNetPacket *packet,
     long timeStamp)
 {
+  MyPoint origPoint;
   MyPoint point;
+
   // get robot location from packet
-  // but add offset to translate to global co-ordinates
-  point.x = static_cast<float>(packet->bufToDouble()) + myXoffset;
-  point.y = static_cast<float>(packet->bufToDouble()) + myYoffset;
+  // reference frame is individual robot's starting point
+  origPoint.x = static_cast<float>(packet->bufToDouble());
+  origPoint.y = static_cast<float>(packet->bufToDouble());
+
+  // rotate to global reference frame
+  point.x = origPoint.x * myCosTheta + origPoint.y * mySinTheta;
+  point.y = origPoint.y * myCosTheta - origPoint.x * mySinTheta;
+
+  // translate to global reference frame
+  point.x += myXoffset;
+  point.y += myYoffset;
   point.z = 0.0;
-  point.rgba = myRobotColor;
+  point.rgba = myRobotColor; 
 
   // get robot heading
   double th = packet->bufToDouble();
@@ -239,6 +255,7 @@ void PCLOutputHandler::filterRobotLocation(MyPoint &measured)
 void PCLOutputHandler::updateLaserReadings(ArNetPacket *packet, 
     long timeStamp)
 {
+  MyPoint origPoint;
   MyPoint point;
   MyCloud::Ptr tempLaserCloud(new MyCloud);
 
@@ -247,10 +264,19 @@ void PCLOutputHandler::updateLaserReadings(ArNetPacket *packet,
 
   // extraction of point co-ordinates
   for (int i = 0; i < nPoints; i++) {
-    // displacement
-    point.x = static_cast<float>(packet->bufToDouble()) + myXoffset;
-    point.y = static_cast<float>(packet->bufToDouble()) + myYoffset;
-    point.z = static_cast<float>(packet->bufToDouble());
+    // reference frame is individual robot's starting point
+    origPoint.x = static_cast<float>(packet->bufToDouble());
+    origPoint.y = static_cast<float>(packet->bufToDouble());
+    origPoint.z = static_cast<float>(packet->bufToDouble());
+
+    // rotate to global reference frame
+    point.x = origPoint.x * myCosTheta + origPoint.y * mySinTheta;
+    point.y = origPoint.y * myCosTheta - origPoint.x * mySinTheta;
+
+    // translate to global reference frame
+    point.x += myXoffset;
+    point.y += myYoffset;
+    point.z = origPoint.z;
     point.rgba = myColor; 
 
     setMinMax(point);

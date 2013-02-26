@@ -64,6 +64,9 @@ public:
   }
   MyCloud::Ptr getLaserCloud() { return myLaserCloud; }
 
+  static const double pi;
+  static const double toRadian;
+
 private:
   std::vector<TimeStampedPCL *> myLaserClouds;
   // This cloud is an aggregate of all points in the list.
@@ -77,8 +80,11 @@ private:
   int myYoffset;
   int myThetaOffset;
   int myRequestFreq;
+  double myCosTheta;
+  double mySinTheta;
   MyPoint myMinVals;
   MyPoint myMaxVals;
+
 
   void setMinMax(const MyPoint &point);
   void printClouds();
