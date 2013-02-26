@@ -11,8 +11,9 @@ set(PROG client)
 # use cmake to find PCL library
 find_package(PCL 1.3 REQUIRED 
   COMPONENTS common io visualization filters)
-# cmake could also be used for OpenCV library but I had problems linking
-# so i settled for custom linking
+# use cmake to find OpenCV library
+# if it is not found, it is included and linked manually
+find_package( OpenCV REQUIRED )
 
 # Aria headers location
 include_directories(/usr/local/Aria/include/)
@@ -40,11 +41,12 @@ add_executable(${PROG} ${SRC})
 # Required Aria libraries
 set(Aria_LIBS Aria ArNetworking pthread dl rt)
 # Required OpenCV libraries
-set(OpenCV_LIBS opencv_core opencv_video)
+# if cmake finds OpenCV then OpenCV_LIBS will link the libraries
+set(OpenCV_LIBS_CUSTOM opencv_core opencv_video)
 target_link_libraries(${PROG} 
   ${Aria_LIBS}
   ${PCL_COMMON_LIBRARIES} ${PCL_IO_LIBRARIES}
   ${PCL_VISUALIZATION_LIBRARIES}
   ${PCL_FILTERS_LIBRARIES}
-  ${OpenCV_LIBS}
+  ${OpenCV_LIBS} ${OpenCV_LIBS_CUSTOM}
 )
