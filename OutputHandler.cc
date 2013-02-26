@@ -155,7 +155,7 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
   // add a handler for the data packet
   myClient->addHandler("getPCL", &handlePCLdataftr);
   // then request it every cycle of given milliseconds
-  myClient->request("getPCL", myRequestFreq);
+  // myClient->request("getPCL", myRequestFreq);
   //myClient->requestOnce("getPCL");
 }
 

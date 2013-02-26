@@ -63,6 +63,7 @@ public:
     return &myLaserClouds;
   }
   MyCloud::Ptr getLaserCloud() { return myLaserCloud; }
+  int getRequestFreq() { return myRequestFreq; }
 
   static const double pi;
   static const double toRadian;

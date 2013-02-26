@@ -30,5 +30,6 @@ std::string genTimeStr();
 bool genDir(const std::string &dirName);
 void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients);
 long getElapsedTime();
+void beginDataTransfer(std::vector<PCLOutputHandler *> &pclClients);
 
 #endif

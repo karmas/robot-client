@@ -114,6 +114,13 @@ int main(int argc, char **argv)
   keyHandler.addKeyHandler('p', &writeToFileFtr);
   echo("PRESS P IN TERMINAL TO WRITE POINT CLOUDS");
 
+  // Functor for handling initiation of data transfer
+  ArGlobalFunctor1< std::vector<PCLOutputHandler *>& >
+    beginDataTransferFtr(beginDataTransfer, pclClients);
+
+  keyHandler.addKeyHandler('b', &beginDataTransferFtr);
+  echo("PRESS B TO BEGIN DATA TRANSFER FROM ROBOT SERVERS");
+
   /*
   client->logDataList();  // prints available data on server
   client->logTracking(true); // prints packet transfer info

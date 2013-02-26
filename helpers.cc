@@ -212,3 +212,17 @@ long getElapsedTime()
     return milliSecondsPassed;
   }
 }
+
+// start requesting laser and robot data from clients
+void beginDataTransfer(std::vector<PCLOutputHandler *> &pclClients)
+{
+  std::cout << "Started transferring from robot clients" << std::endl;
+
+  for (size_t i = 0; i < pclClients.size(); i++) {
+    pclClients[i]->getClient()->request("getPCL",
+	pclClients[i]->getRequestFreq());
+    std::cout << pclClients[i]->getClient()->getRobotName() 
+      << " every " << pclClients[i]->getRequestFreq() << " milliseconds "
+      << std::endl;
+  }
+}
