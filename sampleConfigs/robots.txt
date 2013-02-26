@@ -1,0 +1,13 @@
+# required header line
+servers 1.0
+#
+# available field type names:
+# ip locationColor laserColor transformInfo requestFreq
+#
+# string indicating type of each field
+ip laserColor locationColor transformInfo requestFreq
+#
+# list of information for each server
+10.10.3.110 200,100,100 200,0,0 0,0,0 1000
+10.10.3.111 100,100,200 0,0,200 0,670,0 1000
+#10.10.3.113 100,200,100 0,200,0 0,-1400,0 1000

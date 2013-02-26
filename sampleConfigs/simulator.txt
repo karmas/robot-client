@@ -1,0 +1,9 @@
+servers 1.0
+#ip port laserColor locationColor transformInfo requestFreq
+# list of information for each server
+#127.0.0.1 7272 200,100,100 200,0,0 0,0,0 500
+#127.0.0.1 7273 100,100,200 0,0,200 0,0,0 500
+ip port laserColor
+# list of information for each server
+127.0.0.1 7272 200,100,100
+127.0.0.1 7273 100,100,200
