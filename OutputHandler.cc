@@ -153,7 +153,7 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
   kalmanFilter->statePost.at<float>(1) = 0 + myYoffset;
 
   // add a handler for the data packet
-  myClient->addHandler("getPCL", &handlePCLdataftr);
+  myClient->addHandler("getSensorDataLaser", &handlePCLdataftr);
   // then request it every cycle of given milliseconds
   // myClient->request("getPCL", myRequestFreq);
   //myClient->requestOnce("getPCL");
@@ -162,7 +162,7 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
 // Free up memory and stop data request cycle
 PCLOutputHandler::~PCLOutputHandler()
 {
-  myClient->requestStop("getPCL");
+  myClient->requestStop("getSensorDataLaser");
 
   for (size_t i = 0; i < myLaserClouds.size(); i++)
     delete myLaserClouds[i];

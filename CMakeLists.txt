@@ -20,6 +20,8 @@ include_directories(/usr/local/Aria/ArNetworking/include/)
 include_directories(${PCL_INCLUDE_DIRS})
 # OpenCV headers location for FRCV lab (Ubuntu 12 32bit)
 include_directories(/usr/include/opencv)
+# OpenCV headers location home (Linux Mint 64bit)
+include_directories(/usr/local/include/opencv)
 
 # Aria libraries location
 link_directories(/usr/local/Aria/lib/)
