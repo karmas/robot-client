@@ -4,7 +4,7 @@ project(CLIENT)
 # Source files
 set(SRC
     helpers.cc MoveRobot.cc ConfigFileReader.cc
-    PCLutils.cc OutputHandler.cc client.cc)
+    PCLutils.cc SensorDataHandler.cc client.cc)
 # Program name
 set(PROG client)
 

@@ -39,7 +39,7 @@
 #include "helpers.h"
 #include "ConfigFileReader.h"
 #include "MoveRobot.h"
-#include "OutputHandler.h"
+#include "SensorDataHandler.h"
 
 
 // main main
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
   connectHosts(clients, hostsInfo);
 
   // create the viewer which will show the point cloud
-  PCLViewer viewer("Cloud Viewer c2012 FRCV", pclClients);
+  //PCLViewer viewer("Cloud Viewer c2012 FRCV", pclClients);
 
   // create the keyhandler which allows manipulating the robots
   ArKeyHandler keyHandler;
@@ -100,11 +100,13 @@ int main(int argc, char **argv)
   // start all the clients
   startClients(clients);
   // each client will request PCL data
-  createPCLReceivers(clients, &viewer, pclClients, hostsInfo);
+  //createPCLReceivers(clients, &viewer, pclClients, hostsInfo);
 
   // a pointer to one of the clients needed for continuous running
   // of client program
   ArClientBase *client = clients[0];
+
+  SensorDataLaserHandler sdlh(client, hostsInfo[0]);
 
   // Functor for handling creation of point cloud file
   // the function appends '.pcd' extension

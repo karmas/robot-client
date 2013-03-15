@@ -2,7 +2,7 @@
 #include <cmath>
 
 #include "helpers.h"
-#include "OutputHandler.h"
+#include "SensorDataHandler.h"
 
 // useful constants for the kalman filter
 const int stateDims = 2;
@@ -339,3 +339,79 @@ void PCLOutputHandler::printClouds()
     }
   }
 }
+
+
+SensorDataHandler::SensorDataHandler(ArClientBase *client, 
+    const char *dataName, int requestFreq)
+  : myClient(client), myDataName(strdup(dataName)),
+    myRequestFreq(requestFreq)
+{
+}
+
+// free up resources
+SensorDataHandler::~SensorDataHandler()
+{
+  delete myDataName;
+}
+
+
+const double SensorDataLaserHandler::pi = 3.14159165f;
+const double SensorDataLaserHandler::toRadian = pi/180;
+
+// attach data packet handler
+SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
+    const HostInfo &hostInfo)
+  : SensorDataHandler(client, "getSensorDataLaser", hostInfo.requestFreq),
+    myHandleFtr(this, &SensorDataLaserHandler::handle),
+    myRobotColor(hostInfo.locationColor),
+    myLaserColor(hostInfo.laserColor),
+    myRobotCloud(new MyCloud),
+    myLaserCloud(new MyCloud),
+    myTransformInfo(hostInfo.transformInfo.xOffset,
+		  hostInfo.transformInfo.yOffset,
+		  hostInfo.transformInfo.thetaOffset),
+    myCosTheta(cos(myTransformInfo.thetaOffset*toRadian)),
+    mySinTheta(sin(myTransformInfo.thetaOffset*toRadian))
+{
+  myClient->addHandler(myDataName, &myHandleFtr);
+  request();
+}
+
+// stop the data requests
+SensorDataLaserHandler::~SensorDataLaserHandler()
+{
+  myClient->requestStop(myDataName);
+
+  for (size_t i = 0; i < myLaserClouds.size(); i++)
+    delete myLaserClouds[i];
+}
+
+
+// Decode the data packet received
+void SensorDataLaserHandler::handle(ArNetPacket *packet)
+{
+  long timeStamp = getElapsedTime();
+  updateRobotLocation(packet, timeStamp);
+}
+
+// Start requesting data packets 
+void SensorDataLaserHandler::request()
+{
+  myClient->request(myDataName, myRequestFreq);
+}
+
+// Extract robot location from packet and update the clouds holding
+// robot locations.
+void SensorDataLaserHandler::updateRobotLocation(ArNetPacket *packet,
+    long timeStamp)
+{
+}
+
+
+// Extract laser readings from packet and update the clouds holding
+// laser readings.
+void SensorDataLaserHandler::updateLaserReadings(ArNetPacket *packet, 
+    long timeStamp)
+{
+}
+

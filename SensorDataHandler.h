@@ -1,5 +1,5 @@
-#ifndef OUTPUT_HANDLER_H
-#define OUTPUT_HANDLER_H
+#ifndef SENSOR_DATA_HANDLER_H
+#define SENSOR_DATA_HANDLER_H
 
 #include <vector>
 
@@ -16,6 +16,56 @@
 #include <cv.h>
 
 #include "PCLutils.h"
+#include "ConfigFileReader.h"
+
+// Abstract base class which provides the interface for class that
+// handle sensor data from the robot
+class SensorDataHandler {
+protected:
+  SensorDataHandler(ArClientBase *client, const char *dataName,
+      		    int requestFreq);
+  virtual ~SensorDataHandler();
+  ArClientBase *myClient;
+  const char *myDataName;
+  const int myRequestFreq;
+
+  virtual void handle(ArNetPacket *packet) = 0;
+  virtual void request() = 0;
+};
+
+
+// handle laser data
+class SensorDataLaserHandler : public SensorDataHandler {
+public:
+  SensorDataLaserHandler(ArClientBase *client, const HostInfo &hostInfo);
+  ~SensorDataLaserHandler();
+  void handle(ArNetPacket *packet);
+  void request();
+
+  static const double pi;
+  static const double toRadian;
+
+private:
+  ArFunctor1C<SensorDataLaserHandler, ArNetPacket *> myHandleFtr;
+  std::vector<RobotInfo *> myRobotInfos;
+  const int myRobotColor;
+  std::vector<TimeStampedPCL *> myLaserClouds;
+  const int myLaserColor;
+  // This cloud is an aggregate of all points in the list.
+  // CloudViewer is refreshed each time a new cloud is added to it.
+  // If we added each new cloud to the viewer, it would keep refreshing.
+  // To remedy this, a separate cloud is needed to store all the points.
+  MyCloud::Ptr myRobotCloud;
+  MyCloud::Ptr myLaserCloud;
+  const TransformInfo myTransformInfo;
+  const double myCosTheta;
+  const double mySinTheta;
+
+  void updateRobotLocation(ArNetPacket *packet, long timeStamp);
+  void updateLaserReadings(ArNetPacket *packet, long timeStamp);
+};
+
+
 
 
 // This class handles output data from server. Currently it supports the
