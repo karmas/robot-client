@@ -41,28 +41,6 @@ private:
 
 
 
-// This class is responsible for displaying point clouds on a viewer
-class PCLViewer {
-public:
-  PCLViewer(const std::string& title,
-      	    std::vector<PCLOutputHandler *> &clients); 
-  ~PCLViewer() {}
-  void addCloud(MyCloud::Ptr cloud,
-      		const std::string& name);
-
-private:
-  PCLViewer(const PCLViewer&);
-  PCLViewer& operator=(const PCLViewer&);
-
-#ifdef PCLVISUALIZER
-  pcl::visualization::PCLVisualizer myViewer;
-#else
-  pcl::visualization::CloudViewer myViewer;
-#endif
-  std::vector<PCLOutputHandler *> &myClients;
-};
-
-
 // Some helpful functions
 
 double calcRegionDensity(MyCloud::Ptr cloud,

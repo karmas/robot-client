@@ -27,23 +27,8 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
     myRobotColor(robotColor),
     myRobotCloudFiltered(new MyCloud),
     kalmanFilter(
-	new cv::KalmanFilter(stateDims, measurementDims)),
-    handleUpdateInfoftr(this, &OutputHandler::handleUpdateInfo),
-    handleSensorInfoftr(this, &OutputHandler::handleSensorInfo)
+	new cv::KalmanFilter(stateDims, measurementDims))
 {
-  /*
-  // Create a handler for handling packet of type 'update'
-  myClient->addHandler("update", &handleUpdateInfoftr);
-  // Request 'update' packet in cycles of given time in milliseconds.
-  myClient->request("update", 1000);
-
-  // Some server packets require packets from client
-  ArNetPacket packet;
-  packet.strToBuf("laser");
-  myClient->addHandler("getSensorCurrent", &handleSensorInfoftr);
-  myClient->request("getSensorCurrent", 2000, &packet);
-  */
-
   // set the voxel leaf to 1 cm
   // note: the clouds are storing in mm
   myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 10.0f;
@@ -76,59 +61,11 @@ OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
 // free up some memory
 OutputHandler::~OutputHandler()
 {
-  /*
-  myClient->requestStop("update");
-  */
   for (size_t i = 0; i < myRobotInfos.size(); i++)
     delete myRobotInfos[i];
   delete kalmanFilter;
 }
 
-// This function displays some positional information on the robot.
-void OutputHandler::handleUpdateInfo(ArNetPacket *packet)
-{
-  const int BUFFER_LENGHT = 256;
-  char buffer[BUFFER_LENGHT];
-
-  packet->bufToStr(buffer, BUFFER_LENGHT);
-  //std::cout << "status is " << buffer << std::endl;
-  packet->bufToStr(buffer, BUFFER_LENGHT);
-  //std::cout << "mode is " << buffer << std::endl;
-  packet->bufToByte2();
-  int xPosition = (double)packet->bufToByte4();
-  int yPosition = (double)packet->bufToByte4();
-  //int theta = (double)packet->bufToByte2();
-
-  MyPoint point;
-  point.x = static_cast<float>(xPosition);
-  point.y = static_cast<float>(yPosition);
-  point.z = 0.0;
-  point.rgba = myRobotColor;
-  
-  myRobotCloud->push_back(point);
-  myViewer->addCloud(myRobotCloud, myClient->getHost() + std::string("robot"));
-}
-
-// This function displays some laser readings on the robot.
-void OutputHandler::handleSensorInfo(ArNetPacket *packet)
-{
-  const int BUFFER_LENGHT = 256;
-  char buffer[BUFFER_LENGHT];
-
-  int nReadings = packet->bufToByte2();
-  std::cout << myClient->getRobotName() << " sent readings = "
-       << nReadings << std::endl;
-  packet->bufToStr(buffer, BUFFER_LENGHT);
-  //std::cout << "sensor name is " << buffer << std::endl;
-
-  int x, y;
-  for (int i = 0; i < 1; i++) {
-    x = packet->bufToByte4();
-    y = packet->bufToByte4();
-    std::cout << myClient->getRobotName() << " reading " << i + 1 
-         << " = " << x << " , " << y << std::endl;
-  }
-}
 
 
 
@@ -154,9 +91,6 @@ PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
 
   // add a handler for the data packet
   myClient->addHandler("getSensorDataLaser", &handlePCLdataftr);
-  // then request it every cycle of given milliseconds
-  // myClient->request("getPCL", myRequestFreq);
-  //myClient->requestOnce("getPCL");
 }
 
 // Free up memory and stop data request cycle
@@ -174,8 +108,6 @@ PCLOutputHandler::~PCLOutputHandler()
 void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
 {
   long timeStamp = getElapsedTime();
-  updateRobotLocation(packet, timeStamp);
-  updateLaserReadings(packet, timeStamp);
 
   //myClient->logTracking(true);
 
@@ -183,42 +115,6 @@ void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
   //std::cout << calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, 
   //    			    myDensityDivisor);
   //std::cout << std::endl;
-}
-
-// Extract robot location from packet and update the clouds holding
-// robot locations.
-void PCLOutputHandler::updateRobotLocation(ArNetPacket *packet,
-    long timeStamp)
-{
-  MyPoint origPoint;
-  MyPoint point;
-
-  // get robot location from packet
-  // reference frame is individual robot's starting point
-  origPoint.x = static_cast<float>(packet->bufToDouble());
-  origPoint.y = static_cast<float>(packet->bufToDouble());
-
-  // rotate to global reference frame
-  point.x = origPoint.x * myCosTheta + origPoint.y * mySinTheta;
-  point.y = origPoint.y * myCosTheta - origPoint.x * mySinTheta;
-
-  // translate to global reference frame
-  point.x += myXoffset;
-  point.y += myYoffset;
-  point.z = 0.0;
-  point.rgba = myRobotColor; 
-
-  // get robot heading
-  double th = packet->bufToDouble();
-  // store the robot position when the scan is taken
-  myRobotInfos.push_back(new RobotInfo(point, timeStamp, th));
-
-  // also display the robot position
-  myRobotCloud->push_back(point);
-  myViewer->addCloud(myRobotCloud, 
-      myClient->getRobotName() + std::string("robot"));
-
-  filterRobotLocation(point);
 }
 
 // kalman filtering of robot position
@@ -250,53 +146,6 @@ void PCLOutputHandler::filterRobotLocation(MyPoint &measured)
 #endif
 }
 
-// Extract laser readings from packet and update the clouds holding
-// laser readings.
-void PCLOutputHandler::updateLaserReadings(ArNetPacket *packet, 
-    long timeStamp)
-{
-  MyPoint origPoint;
-  MyPoint point;
-  MyCloud::Ptr tempLaserCloud(new MyCloud);
-
-  // get number of laser readings
-  int nPoints = packet->bufToByte4();
-
-  // extraction of point co-ordinates
-  for (int i = 0; i < nPoints; i++) {
-    // reference frame is individual robot's starting point
-    origPoint.x = static_cast<float>(packet->bufToDouble());
-    origPoint.y = static_cast<float>(packet->bufToDouble());
-    origPoint.z = static_cast<float>(packet->bufToDouble());
-
-    // rotate to global reference frame
-    point.x = origPoint.x * myCosTheta + origPoint.y * mySinTheta;
-    point.y = origPoint.y * myCosTheta - origPoint.x * mySinTheta;
-
-    // translate to global reference frame
-    point.x += myXoffset;
-    point.y += myYoffset;
-    point.z = origPoint.z;
-    point.rgba = myColor; 
-
-    setMinMax(point);
-    tempLaserCloud->push_back(point);
-    // also add point in aggregate cloud which is used by viewer
-    myLaserCloud->push_back(point);
-  }
-
-  // downsample the current laser cloud and store it
-  tempLaserCloud = voxelFilter(tempLaserCloud, myVoxelLeaf);
-  myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
-
-  // downsample the aggregate laser cloud
-  myLaserCloud = voxelFilter(myLaserCloud, myVoxelLeaf);
-
-  // Display the laser points using the aggregate cloud not the list
-  // because the viewer refreshes each time a cloud is added.
-  myViewer->addCloud(myLaserCloud,
-      		     myClient->getRobotName() + std::string("laser"));
-}
 
 // set min and max values if possible which can be later used
 // to get volume of the region scanned
@@ -344,7 +193,7 @@ void PCLOutputHandler::printClouds()
 SensorDataHandler::SensorDataHandler(ArClientBase *client, 
     const char *dataName, int requestFreq)
   : myClient(client), myDataName(strdup(dataName)),
-    myRequestFreq(requestFreq)
+    myRequestFreq(requestFreq), myDisplayCloud(new MyCloud)
 {
 }
 
@@ -365,8 +214,6 @@ SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
     myHandleFtr(this, &SensorDataLaserHandler::handle),
     myRobotColor(hostInfo.locationColor),
     myLaserColor(hostInfo.laserColor),
-    myRobotCloud(new MyCloud),
-    myLaserCloud(new MyCloud),
     myTransformInfo(hostInfo.transformInfo.xOffset,
 		  hostInfo.transformInfo.yOffset,
 		  hostInfo.transformInfo.thetaOffset),
@@ -374,7 +221,6 @@ SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
     mySinTheta(sin(myTransformInfo.thetaOffset*toRadian))
 {
   myClient->addHandler(myDataName, &myHandleFtr);
-  request();
 }
 
 // stop the data requests
@@ -392,6 +238,7 @@ void SensorDataLaserHandler::handle(ArNetPacket *packet)
 {
   long timeStamp = getElapsedTime();
   updateRobotLocation(packet, timeStamp);
+  updateLaserReadings(packet, timeStamp);
 }
 
 // Start requesting data packets 
@@ -400,11 +247,45 @@ void SensorDataLaserHandler::request()
   myClient->request(myDataName, myRequestFreq);
 }
 
+// Get the full cloud which will be displayed
+MyCloud::Ptr SensorDataLaserHandler::displayCloud()
+{
+  return myDisplayCloud;
+}
+
 // Extract robot location from packet and update the clouds holding
 // robot locations.
 void SensorDataLaserHandler::updateRobotLocation(ArNetPacket *packet,
     long timeStamp)
 {
+  MyPoint origPoint;
+  MyPoint point;
+
+  // get robot location from packet
+  // reference frame is individual robot's starting point
+  origPoint.x = static_cast<float>(packet->bufToDouble());
+  origPoint.y = static_cast<float>(packet->bufToDouble());
+
+  // rotate to global reference frame
+  point.x = origPoint.x * myCosTheta + origPoint.y * mySinTheta;
+  point.y = origPoint.y * myCosTheta - origPoint.x * mySinTheta;
+
+  // translate to global reference frame
+  point.x += myTransformInfo.xOffset;
+  point.y += myTransformInfo.yOffset;
+  point.z = 0.0;
+  point.rgba = myRobotColor; 
+
+  // get robot heading
+  double th = packet->bufToDouble();
+  // store the robot position when the scan is taken
+  myRobotInfos.push_back(new RobotInfo(point, timeStamp, th));
+
+  // also add to cloud which will displayed
+  myDisplayCloud->push_back(point);
+  /*
+  filterRobotLocation(point);
+      */
 }
 
 
@@ -413,5 +294,57 @@ void SensorDataLaserHandler::updateRobotLocation(ArNetPacket *packet,
 void SensorDataLaserHandler::updateLaserReadings(ArNetPacket *packet, 
     long timeStamp)
 {
+  MyPoint origPoint;
+  MyPoint point;
+  MyCloud::Ptr tempLaserCloud(new MyCloud);
+
+  // get number of laser readings
+  int nPoints = packet->bufToByte4();
+
+  // extraction of point co-ordinates
+  for (int i = 0; i < nPoints; i++) {
+    // reference frame is individual robot's starting point
+    origPoint.x = static_cast<float>(packet->bufToDouble());
+    origPoint.y = static_cast<float>(packet->bufToDouble());
+    origPoint.z = static_cast<float>(packet->bufToDouble());
+
+    // rotate to global reference frame
+    point.x = origPoint.x * myCosTheta + origPoint.y * mySinTheta;
+    point.y = origPoint.y * myCosTheta - origPoint.x * mySinTheta;
+
+    // translate to global reference frame
+    point.x += myTransformInfo.xOffset;
+    point.y += myTransformInfo.yOffset;
+    point.z = origPoint.z;
+    point.rgba = myLaserColor; 
+
+    //setMinMax(point);
+    tempLaserCloud->push_back(point);
+    // also add point in aggregate cloud which is used by viewer
+    myDisplayCloud->push_back(point);
+  }
+
+//  // downsample the current laser cloud and store it
+//  tempLaserCloud = voxelFilter(tempLaserCloud, myVoxelLeaf);
+//  myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
+//
+//  // downsample the aggregate laser cloud
+//  myLaserCloud = voxelFilter(myLaserCloud, myVoxelLeaf);
 }
 
+
+
+// Create sensor data handler objects
+void createSensorDataHandlers(
+    std::vector<ArClientBase *> &clients,
+    std::vector<SensorDataHandler *> &sensorDataHandlers,
+    std::vector<HostInfo> &hostsInfo)
+{
+  SensorDataHandler *sensorDataHandler = NULL;
+
+  for (unsigned int i = 0; i < clients.size(); i++) {
+    sensorDataHandler = 
+      new SensorDataLaserHandler(clients[i], hostsInfo[i]);
+    sensorDataHandlers.push_back(sensorDataHandler);
+  }
+}

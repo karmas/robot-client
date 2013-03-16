@@ -9,35 +9,6 @@ TimeStampedPCL::TimeStampedPCL(MyCloud::Ptr c, long ts)
   : cloud(c), timeStamp(ts) { }
 
 
-
-// Initialize the viewer window
-PCLViewer::PCLViewer(const std::string& title,
-    		     std::vector<PCLOutputHandler *> &clients)
-  : myViewer(title), myClients(clients)
-{
-#ifdef PCLVISUALIZER
-  myViewer.setBackgroundColor(0,0,0);
-  myViewer.addCoordinateSystem(170.0);
-  myViewer.initCameraParameters();
-#endif
-}
-
-// Add a cloud or update it if it has already been added before
-void PCLViewer::addCloud(MyCloud::Ptr cloud, const std::string& name)
-{
-  if (myViewer.wasStopped()) return;
-#ifdef PCLVISUALIZER
-  // give viewer time to process events
-  myViewer.spinOnce(100);
-
-  if (!myViewer.updatePointCloud(cloud, name))
-    myViewer.addPointCloud(cloud, name);
-#else
-  myViewer.showCloud(cloud, name);
-#endif
-}
-
-
 // Return average density in given region of a point cloud.
 // MinVal holds the minimum values for the co-ordinates and maxVal
 // holds the maximum values. These two points represent the furthest

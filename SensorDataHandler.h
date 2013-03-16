@@ -21,16 +21,19 @@
 // Abstract base class which provides the interface for class that
 // handle sensor data from the robot
 class SensorDataHandler {
+public:
+  virtual void request() = 0;
+  virtual MyCloud::Ptr displayCloud() = 0;
 protected:
   SensorDataHandler(ArClientBase *client, const char *dataName,
       		    int requestFreq);
   virtual ~SensorDataHandler();
+  virtual void handle(ArNetPacket *packet) = 0;
+
   ArClientBase *myClient;
   const char *myDataName;
   const int myRequestFreq;
-
-  virtual void handle(ArNetPacket *packet) = 0;
-  virtual void request() = 0;
+  MyCloud::Ptr myDisplayCloud;
 };
 
 
@@ -41,28 +44,23 @@ public:
   ~SensorDataLaserHandler();
   void handle(ArNetPacket *packet);
   void request();
+  MyCloud::Ptr displayCloud();
 
   static const double pi;
   static const double toRadian;
 
 private:
+  void updateRobotLocation(ArNetPacket *packet, long timeStamp);
+  void updateLaserReadings(ArNetPacket *packet, long timeStamp);
+
   ArFunctor1C<SensorDataLaserHandler, ArNetPacket *> myHandleFtr;
   std::vector<RobotInfo *> myRobotInfos;
   const int myRobotColor;
   std::vector<TimeStampedPCL *> myLaserClouds;
   const int myLaserColor;
-  // This cloud is an aggregate of all points in the list.
-  // CloudViewer is refreshed each time a new cloud is added to it.
-  // If we added each new cloud to the viewer, it would keep refreshing.
-  // To remedy this, a separate cloud is needed to store all the points.
-  MyCloud::Ptr myRobotCloud;
-  MyCloud::Ptr myLaserCloud;
   const TransformInfo myTransformInfo;
   const double myCosTheta;
   const double mySinTheta;
-
-  void updateRobotLocation(ArNetPacket *packet, long timeStamp);
-  void updateLaserReadings(ArNetPacket *packet, long timeStamp);
 };
 
 
@@ -75,8 +73,6 @@ public:
   OutputHandler(ArClientBase *client, PCLViewer *viewer, int robotColor);
   virtual ~OutputHandler();
 
-  void handleUpdateInfo(ArNetPacket *packet);
-  void handleSensorInfo(ArNetPacket *packet);
   MyCloud::Ptr getRobotCloud() { return myRobotCloud; }
   MyCloud::Ptr getRobotCloudFiltered() { return myRobotCloudFiltered; }
   ArClientBase *getClient() { return myClient; }
@@ -94,8 +90,6 @@ protected:
   static const int myDensityDivisor;
 
 private:
-  ArFunctor1C<OutputHandler, ArNetPacket *> handleUpdateInfoftr;
-  ArFunctor1C<OutputHandler, ArNetPacket *> handleSensorInfoftr;
 };
 
 
@@ -139,10 +133,15 @@ private:
 
   void setMinMax(const MyPoint &point);
   void printClouds();
-  void updateRobotLocation(ArNetPacket *packet, long timeStamp);
-  void updateLaserReadings(ArNetPacket *packet, long timeStamp);
   void filterRobotLocation(MyPoint &measured);
 };
 
+
+
+// creates sensor data handler objects using given host info
+void createSensorDataHandlers(
+    std::vector<ArClientBase *> &clients,
+    std::vector<SensorDataHandler *> &sensorDataHandlers,
+    std::vector<HostInfo> &hostsInfo);
 
 #endif

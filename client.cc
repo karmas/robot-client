@@ -40,6 +40,7 @@
 #include "ConfigFileReader.h"
 #include "MoveRobot.h"
 #include "SensorDataHandler.h"
+#include "SensorDataViewer.h"
 
 
 // main main
@@ -50,6 +51,8 @@ int main(int argc, char **argv)
   std::vector<HostInfo> hostsInfo;
   // list of clients to connect to each server
   std::vector<ArClientBase *> clients;
+  // list of sensor data handlers for clients
+  std::vector<SensorDataHandler *> sensorDataHandlers;
   // list of output handler objects for clients
   std::vector<PCLOutputHandler *> pclClients;
 
@@ -71,9 +74,6 @@ int main(int argc, char **argv)
 
   // create a connection to each server
   connectHosts(clients, hostsInfo);
-
-  // create the viewer which will show the point cloud
-  //PCLViewer viewer("Cloud Viewer c2012 FRCV", pclClients);
 
   // create the keyhandler which allows manipulating the robots
   ArKeyHandler keyHandler;
@@ -99,14 +99,13 @@ int main(int argc, char **argv)
 
   // start all the clients
   startClients(clients);
-  // each client will request PCL data
-  //createPCLReceivers(clients, &viewer, pclClients, hostsInfo);
+  // create the sensor data handlers for the clients
+  createSensorDataHandlers(clients, sensorDataHandlers, hostsInfo);
+  SensorDataViewer viewer("SensorDataViewer FRCV", sensorDataHandlers);
 
   // a pointer to one of the clients needed for continuous running
   // of client program
   ArClientBase *client = clients[0];
-
-  SensorDataLaserHandler sdlh(client, hostsInfo[0]);
 
   // Functor for handling creation of point cloud file
   // the function appends '.pcd' extension
@@ -123,11 +122,6 @@ int main(int argc, char **argv)
   keyHandler.addKeyHandler('b', &beginDataTransferFtr);
   echo("PRESS B TO BEGIN DATA TRANSFER FROM ROBOT SERVERS");
 
-  /*
-  client->logDataList();  // prints available data on server
-  client->logTracking(true); // prints packet transfer info
-  */
-
   // breathing time for inital setup procedures
   ArUtil::sleep(500);
 
@@ -138,6 +132,9 @@ int main(int argc, char **argv)
     if (joySupport) checkJoy(&joyHandler, clients);
     if (moveRobot.manMode) moveRobot.sendInput();
     ArUtil::sleep(100);
+
+    // refresh the viewer
+    viewer.updateDisplay();
   }
 
   Aria::shutdown();
