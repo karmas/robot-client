@@ -53,8 +53,6 @@ int main(int argc, char **argv)
   std::vector<ArClientBase *> clients;
   // list of sensor data handlers for clients
   std::vector<SensorDataHandler *> sensorDataHandlers;
-  // list of output handler objects for clients
-  std::vector<PCLOutputHandler *> pclClients;
 
   // needed to initialize aria framework
   Aria::init();
@@ -109,18 +107,10 @@ int main(int argc, char **argv)
 
   // Functor for handling creation of point cloud file
   // the function appends '.pcd' extension
-  ArGlobalFunctor1< std::vector<PCLOutputHandler *>& >
-    writeToFileFtr(writeCloudToFile, pclClients);
-
+  ArGlobalFunctor1< std::vector<SensorDataHandler *>& >
+    writeToFileFtr(writeSensorDataToDisk, sensorDataHandlers);
   keyHandler.addKeyHandler('p', &writeToFileFtr);
   echo("PRESS P IN TERMINAL TO WRITE POINT CLOUDS");
-
-  // Functor for handling initiation of data transfer
-  ArGlobalFunctor1< std::vector<PCLOutputHandler *>& >
-    beginDataTransferFtr(beginDataTransfer, pclClients);
-
-  keyHandler.addKeyHandler('b', &beginDataTransferFtr);
-  echo("PRESS B TO BEGIN DATA TRANSFER FROM ROBOT SERVERS");
 
   // breathing time for inital setup procedures
   ArUtil::sleep(500);

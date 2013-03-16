@@ -7,8 +7,6 @@
 
 // forward declaratiosn
 struct HostInfo;
-class PCLViewer;
-class PCLOutputHandler;
 
 
 // some message display routines
@@ -21,15 +19,9 @@ void escapePressed();
 const char *createRobotName(const char *IP);
 void connectHosts(std::vector<ArClientBase *> &clients,
                   const std::vector<HostInfo> &hostsInfo);
-void createPCLReceivers(std::vector<ArClientBase *> &clients,
-    			PCLViewer *viewer,
-			std::vector<PCLOutputHandler *> &pclClients,
-			std::vector<HostInfo> &hostsInfo);
 void startClients(std::vector<ArClientBase *> clients);
 std::string genTimeStr();
 bool genDir(const std::string &dirName);
-void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients);
 long getElapsedTime();
-void beginDataTransfer(std::vector<PCLOutputHandler *> &pclClients);
 
 #endif

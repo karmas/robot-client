@@ -1,8 +1,9 @@
+#include <sstream>
+
 #include "Aria.h"
 
 #include "helpers.h"
 #include "ConfigFileReader.h"
-#include "SensorDataHandler.h"
 
 
 // some message display routines
@@ -40,9 +41,6 @@ int rgba(int r, int g, int b) {
   return b + 256*g +256*256*r;
 }
 
-// some useful constants
-const std::string outDirPrefix = "clouds";
-
 // shuts down aria 
 void escapePressed()
 { 
@@ -79,26 +77,6 @@ void connectHosts(std::vector<ArClientBase *> &clients,
       echo("connected to", client->getRobotName());
       clients.push_back(client);
     }
-  }
-}
-
-// create connection to receive point cloud data for all clients
-void createPCLReceivers(std::vector<ArClientBase *> &clients,
-    			PCLViewer *viewer,
-			std::vector<PCLOutputHandler *> &pclClients,
-			std::vector<HostInfo> &hostsInfo)
-{
-  PCLOutputHandler *pclHandler = NULL;
-
-  for (unsigned int i = 0; i < clients.size(); i++) {
-    pclHandler = new PCLOutputHandler(clients[i], viewer,
-		     hostsInfo[i].locationColor,
-		     hostsInfo[i].laserColor,
-		     hostsInfo[i].transformInfo.xOffset,
-		     hostsInfo[i].transformInfo.yOffset,
-		     hostsInfo[i].transformInfo.thetaOffset,
-		     hostsInfo[i].requestFreq);
-    pclClients.push_back(pclHandler);
   }
 }
 
@@ -143,48 +121,6 @@ bool genDir(const std::string &dirName)
   return true;
 }
 
-// It creates a new ouput folder where all the point clouds will be stored.
-// The output folder has name that is based on a chosen prefix which is
-// held in the string variable outDirPrefix and the current time.
-void writeCloudToFile(std::vector<PCLOutputHandler *> &pclClients)
-{
-  // generate a new output directory based on current time
-  std::string outDir = outDirPrefix + genTimeStr();
-  // error message already spawned by genOutDir
-  if (!genDir(outDir)) return;
-
-  std::string subDir("");
-  std::string filePath = "";
-  std::string extension = ".pcd";
-  MyCloud::Ptr cloud;
-
-  for (size_t i = 0; i < pclClients.size(); i++) {
-    // first create sub directory for each client robot
-    subDir = outDir + "/" + pclClients[i]->getClient()->getRobotName();
-    if (!genDir(subDir)) return;
-
-    // robot position cloud filename
-    filePath = subDir + "/" + "path" + extension;
-    // write the file
-    cloud = pclClients[i]->getRobotCloud();
-    pcl::io::savePCDFile(filePath, *cloud);
-
-    // generate cloud files corresponding to the time stamped cloud files
-    std::vector<TimeStampedPCL *> *laserClouds = 
-      pclClients[i]->getLaserClouds();
-    for (std::vector<TimeStampedPCL *>::const_iterator it =
-	 laserClouds->begin(); it != laserClouds->end(); it++) {
-      cloud = (*it)->getCloud();
-      std::ostringstream os;
-      os << (*it)->getTimeStamp();
-      filePath = subDir + "/" + os.str() + extension;
-      pcl::io::savePCDFile(filePath, *cloud);
-    }
-  }
-
-  std::cout << "Wrote clouds to: " << outDir << std::endl;
-}
-
 // The first time this function is run, a starting time is set.
 // Further calls return the time elapsed from that start time.
 // This is necessary to get smaller values for time so that
@@ -210,19 +146,5 @@ long getElapsedTime()
     // add the seconds passed to it
     milliSecondsPassed += secondsPassed*1000;
     return milliSecondsPassed;
-  }
-}
-
-// start requesting laser and robot data from clients
-void beginDataTransfer(std::vector<PCLOutputHandler *> &pclClients)
-{
-  std::cout << "Started transferring from robot clients" << std::endl;
-
-  for (size_t i = 0; i < pclClients.size(); i++) {
-    pclClients[i]->getClient()->request("getSensorDataLaser",
-	pclClients[i]->getRequestFreq());
-    std::cout << pclClients[i]->getClient()->getRobotName() 
-      << " every " << pclClients[i]->getRequestFreq() << " milliseconds "
-      << std::endl;
   }
 }

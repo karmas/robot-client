@@ -27,7 +27,6 @@ private:
 
   pcl::visualization::PCLVisualizer myViewer;
   int myRefreshTime;	// in milliseconds
-  //pcl::visualization::CloudViewer myViewer;
   std::vector<SensorDataHandler *> &mySensorDataHandlers;
 };
 

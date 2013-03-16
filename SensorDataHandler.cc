@@ -4,190 +4,13 @@
 #include "helpers.h"
 #include "SensorDataHandler.h"
 
+//#define KALMAN_FILTER
+
 // useful constants for the kalman filter
 const int stateDims = 2;
 const int measurementDims = 2;
 const float processNoiseCovValue = 1e-1;
 const float measurementNoiseCovValue = 1e-2;
-
-
-// Density is set to points per cubic/square dm
-const int OutputHandler::myDensityDivisor = 100;
-
-// Kalman filter is applied to estimate the robot position which consists
-// of x and y co-ordinate values.
-// The measurement is the odometer reading from the robot itself which
-// consists of x and y co-ordinate values.
-// Currently control information is not incorporated. The directional
-// velocities could be used.
-OutputHandler::OutputHandler(ArClientBase *client, PCLViewer *viewer,
-    			     int robotColor)
-  : myClient(client), myViewer(viewer),
-    myRobotCloud(new MyCloud),
-    myRobotColor(robotColor),
-    myRobotCloudFiltered(new MyCloud),
-    kalmanFilter(
-	new cv::KalmanFilter(stateDims, measurementDims))
-{
-  // set the voxel leaf to 1 cm
-  // note: the clouds are storing in mm
-  myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 10.0f;
-
-  ////////////////////////////////////////////////
-  // initialize the model for the kalman filter//
-  // ////////////////////////////////////////////
-
-  // set the transition matrix to [ 1 0 ]
-  // 				  [ 0 1 ]
-  // state transition model
-  setIdentity(kalmanFilter->transitionMatrix);
-  setIdentity(kalmanFilter->processNoiseCov, 
-      	      cv::Scalar::all(processNoiseCovValue));
-  // measurement model
-  setIdentity(kalmanFilter->measurementMatrix);
-  setIdentity(kalmanFilter->measurementNoiseCov,
-      	      cv::Scalar::all(measurementNoiseCovValue));
-  setIdentity(kalmanFilter->errorCovPost);
-
-  // initial state is random
-  // set to starting location in PCLOutputHandler constructor
-  //randn(kalmanFilter->statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
-
-  // method to input individual elements
-  //kalmanFilter->transitionMatrix = 
-    //*(cv::Mat_<float>(stateDims, stateDims) << 1, 0, 0, 1);
-}
-
-// free up some memory
-OutputHandler::~OutputHandler()
-{
-  for (size_t i = 0; i < myRobotInfos.size(); i++)
-    delete myRobotInfos[i];
-  delete kalmanFilter;
-}
-
-
-
-
-const double PCLOutputHandler::pi = 3.14159165f;
-const double PCLOutputHandler::toRadian = pi/180;
-
-
-PCLOutputHandler::PCLOutputHandler(ArClientBase *client,
-    PCLViewer *viewer, int robotColor,
-    int color, int xo, int yo, int to, int rf)
-  : OutputHandler(client, viewer, robotColor),
-    myLaserCloud(new MyCloud),
-    handlePCLdataftr(this, &PCLOutputHandler::handlePCLdata),
-    myColor(color),
-    myXoffset(xo), myYoffset(yo), myThetaOffset(to),
-    myRequestFreq(rf),
-    myCosTheta(cos(myThetaOffset*toRadian)),
-    mySinTheta(sin(myThetaOffset*toRadian))
-{
-  // initial state is robot's starting pose
-  kalmanFilter->statePost.at<float>(0) = 0 + myXoffset;
-  kalmanFilter->statePost.at<float>(1) = 0 + myYoffset;
-
-  // add a handler for the data packet
-  myClient->addHandler("getSensorDataLaser", &handlePCLdataftr);
-}
-
-// Free up memory and stop data request cycle
-PCLOutputHandler::~PCLOutputHandler()
-{
-  myClient->requestStop("getSensorDataLaser");
-
-  for (size_t i = 0; i < myLaserClouds.size(); i++)
-    delete myLaserClouds[i];
-}
-
-// This method is responsible deciphering the packet receivied from the
-// server then adding the points to the point cloud. This point cloud
-// is displayed in a viewer.
-void PCLOutputHandler::handlePCLdata(ArNetPacket *packet)
-{
-  long timeStamp = getElapsedTime();
-
-  //myClient->logTracking(true);
-
-  //std::cout << "Density in whole point cloud (points/dm) = ";
-  //std::cout << calcRegionDensity(myLaserCloud, myMinVals, myMaxVals, 
-  //    			    myDensityDivisor);
-  //std::cout << std::endl;
-}
-
-// kalman filtering of robot position
-void PCLOutputHandler::filterRobotLocation(MyPoint &measured)
-{
-  kalmanFilter->predict();	// perform prediction
-
-  // fill measurement matrix with values from odometer
-  cv::Mat measurement(2, 1, CV_32F);
-  measurement.at<float>(0) = measured.x;
-  measurement.at<float>(1) = measured.y;
-
-  // adjust kalman filter state with measurement
-  cv::Mat state(2, 1, CV_32F);
-  state = kalmanFilter->correct(measurement);
-
-  // retreive state values and give it white color for display
-  MyPoint pointFiltered;
-  pointFiltered.x = state.at<float>(0);
-  pointFiltered.y = state.at<float>(1);
-  pointFiltered.z = 0;
-  pointFiltered.rgba = rgba(255,255,255);
-
-  // remember the filtered positions and display
-  myRobotCloudFiltered->push_back(pointFiltered);
-#ifdef SHOW_KALMAN
-  myViewer->addCloud(myRobotCloudFiltered,
-      myClient->getRobotName() + std::string("robotFiltered"));
-#endif
-}
-
-
-// set min and max values if possible which can be later used
-// to get volume of the region scanned
-void PCLOutputHandler::setMinMax(const MyPoint &point)
-{
-  static bool firstTime = true;
-
-  // the first ever point is used to initialize the min and max values
-  if (firstTime) {
-    firstTime = false;
-    myMinVals.x = myMaxVals.x = point.x;
-    myMinVals.y = myMaxVals.y = point.y;
-    myMinVals.z = myMaxVals.z = point.z;
-    return;
-  }
-
-  if (point.x < myMinVals.x) myMinVals.x = point.x;
-  else if (point.x > myMaxVals.x) myMaxVals.x = point.x;
-  if (point.y < myMinVals.y) myMinVals.y = point.y;
-  else if (point.y > myMaxVals.y) myMaxVals.y = point.y;
-  if (point.z < myMinVals.z) myMinVals.z = point.z;
-  else if (point.z > myMaxVals.z) myMaxVals.z = point.z;
-}
-
-// only used for debugging
-void PCLOutputHandler::printClouds()
-{
-  echo("printing all clouds");
-  TimeStampedPCL *curr = NULL;
-  MyCloud::Ptr cloud;
-
-  for (size_t i = 0; i < myLaserClouds.size() && i < 2; i++) {
-    curr = myLaserClouds[i];
-    std::cout << "\tcloud " << i << std::endl;
-
-    cloud = curr->getCloud();
-    for (size_t j = 0; j < 10; j++) {
-      std::cout << "point " << j << ": ";
-      std::cout << (*cloud)[j].x << std::endl;
-    }
-  }
-}
 
 
 SensorDataHandler::SensorDataHandler(ArClientBase *client, 
@@ -207,20 +30,55 @@ SensorDataHandler::~SensorDataHandler()
 const double SensorDataLaserHandler::pi = 3.14159165f;
 const double SensorDataLaserHandler::toRadian = pi/180;
 
-// attach data packet handler
+// Attach packet handler.
+//
+// Kalman filter is applied to estimate the robot position which consists
+// of x and y co-ordinate values.
+// The measurement is the odometer reading from the robot itself which
+// consists of x and y co-ordinate values.
+// Currently control information is not incorporated. The directional
+// velocities could be used.
 SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
     const HostInfo &hostInfo)
   : SensorDataHandler(client, "getSensorDataLaser", hostInfo.requestFreq),
     myHandleFtr(this, &SensorDataLaserHandler::handle),
+    myRobotCloud(new MyCloud),
     myRobotColor(hostInfo.locationColor),
     myLaserColor(hostInfo.laserColor),
     myTransformInfo(hostInfo.transformInfo.xOffset,
 		  hostInfo.transformInfo.yOffset,
 		  hostInfo.transformInfo.thetaOffset),
     myCosTheta(cos(myTransformInfo.thetaOffset*toRadian)),
-    mySinTheta(sin(myTransformInfo.thetaOffset*toRadian))
+    mySinTheta(sin(myTransformInfo.thetaOffset*toRadian)),
+    myRobotCloudFiltered(new MyCloud),
+    myKalmanFilter(
+	new cv::KalmanFilter(stateDims, measurementDims))
 {
   myClient->addHandler(myDataName, &myHandleFtr);
+
+  // set the voxel leaf to 1 cm
+  // note: the clouds are storing in mm
+  myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 10.0f;
+
+  ////////////////////////////////////////////////
+  // initialize the model for the kalman filter//
+  // ////////////////////////////////////////////
+
+  // set the transition matrix to [ 1 0 ]
+  // 				  [ 0 1 ]
+  // state transition model
+  setIdentity(myKalmanFilter->transitionMatrix);
+  setIdentity(myKalmanFilter->processNoiseCov, 
+      	      cv::Scalar::all(processNoiseCovValue));
+  // measurement model
+  setIdentity(myKalmanFilter->measurementMatrix);
+  setIdentity(myKalmanFilter->measurementNoiseCov,
+      	      cv::Scalar::all(measurementNoiseCovValue));
+  setIdentity(myKalmanFilter->errorCovPost);
+
+  // initial state is robot's starting pose
+  myKalmanFilter->statePost.at<float>(0) = 0 + myTransformInfo.xOffset;
+  myKalmanFilter->statePost.at<float>(1) = 0 + myTransformInfo.yOffset;
 }
 
 // stop the data requests
@@ -231,7 +89,6 @@ SensorDataLaserHandler::~SensorDataLaserHandler()
   for (size_t i = 0; i < myLaserClouds.size(); i++)
     delete myLaserClouds[i];
 }
-
 
 // Decode the data packet received
 void SensorDataLaserHandler::handle(ArNetPacket *packet)
@@ -283,11 +140,15 @@ void SensorDataLaserHandler::updateRobotLocation(ArNetPacket *packet,
 
   // also add to cloud which will displayed
   myDisplayCloud->push_back(point);
-  /*
-  filterRobotLocation(point);
-      */
-}
+  // add to cloud for robot positions so that it can be written
+  // as single file
+  myRobotCloud->push_back(point);
 
+#ifdef KALMAN_FILTER
+  // kalman filter of robot position
+  filterRobotLocation(point);
+#endif
+}
 
 // Extract laser readings from packet and update the clouds holding
 // laser readings.
@@ -318,18 +179,70 @@ void SensorDataLaserHandler::updateLaserReadings(ArNetPacket *packet,
     point.z = origPoint.z;
     point.rgba = myLaserColor; 
 
-    //setMinMax(point);
     tempLaserCloud->push_back(point);
     // also add point in aggregate cloud which is used by viewer
     myDisplayCloud->push_back(point);
   }
 
-//  // downsample the current laser cloud and store it
-//  tempLaserCloud = voxelFilter(tempLaserCloud, myVoxelLeaf);
-//  myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
-//
-//  // downsample the aggregate laser cloud
-//  myLaserCloud = voxelFilter(myLaserCloud, myVoxelLeaf);
+  // downsample the current laser cloud and store it
+  tempLaserCloud = voxelFilter(tempLaserCloud, myVoxelLeaf);
+  myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
+  // downsample the aggregate laser cloud
+  myDisplayCloud = voxelFilter(myDisplayCloud, myVoxelLeaf);
+}
+
+// kalman filtering of robot position
+void SensorDataLaserHandler::filterRobotLocation(MyPoint &measured)
+{
+  myKalmanFilter->predict();	// perform prediction
+
+  // fill measurement matrix with values from odometer
+  cv::Mat measurement(2, 1, CV_32F);
+  measurement.at<float>(0) = measured.x;
+  measurement.at<float>(1) = measured.y;
+
+  // adjust kalman filter state with measurement
+  cv::Mat state(2, 1, CV_32F);
+  state = myKalmanFilter->correct(measurement);
+
+  // retreive state values and give it white color for display
+  MyPoint pointFiltered;
+  pointFiltered.x = state.at<float>(0);
+  pointFiltered.y = state.at<float>(1);
+  pointFiltered.z = 0;
+  pointFiltered.rgba = rgba(255,255,255);
+
+  // remember the filtered positions and display
+  myRobotCloudFiltered->push_back(pointFiltered);
+  myDisplayCloud->push_back(pointFiltered);
+}
+
+// Writes the single point cloud consisting of robot locations to
+// given directory. Writes all the laser point clouds to the given
+// directory.
+void SensorDataLaserHandler::writeTo(const std::string &outDir)
+{
+  std::string subDir("");
+  std::string filePath = "";
+  std::string extension = ".pcd";
+  MyCloud::Ptr cloud;
+
+  // create subdirectory for this client's data
+  subDir = outDir + "/" + myClient->getRobotName();
+  if (!genDir(subDir)) return;
+
+  // robot position cloud filename
+  filePath = subDir + "/" + "path" + extension;
+  pcl::io::savePCDFile(filePath, *myRobotCloud);
+
+  // write the laser cloud files using the timestamp as name
+  for (size_t i = 0; i < myLaserClouds.size(); i++) {
+    cloud = myLaserClouds[i]->getCloud();
+    std::ostringstream os;
+    os << myLaserClouds[i]->getTimeStamp();
+    filePath = subDir + "/" + os.str() + extension;
+    pcl::io::savePCDFile(filePath, *cloud);
+  }
 }
 
 
@@ -347,4 +260,23 @@ void createSensorDataHandlers(
       new SensorDataLaserHandler(clients[i], hostsInfo[i]);
     sensorDataHandlers.push_back(sensorDataHandler);
   }
+}
+
+// It creates a new ouput folder where all the point clouds will be stored.
+// The output folder has name that is based on a chosen prefix which is
+// held in the string variable outDirPrefix and the current time.
+void writeSensorDataToDisk(
+    std::vector<SensorDataHandler *> &sensorDataHandlers)
+{
+  const std::string outDirPrefix = "clouds";
+
+  // generate a new output directory based on current time
+  std::string outDir = outDirPrefix + genTimeStr();
+  // error message already spawned by genOutDir
+  if (!genDir(outDir)) return;
+
+  for (size_t i = 0; i < sensorDataHandlers.size(); i++)
+    sensorDataHandlers[i]->writeTo(outDir);
+
+  std::cout << "Wrote sensor data to: " << outDir << std::endl;
 }

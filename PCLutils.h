@@ -8,9 +8,6 @@
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/filters/voxel_grid.h>
 
-// forward declarations
-class PCLOutputHandler;
-
 typedef pcl::PointXYZRGB MyPoint;
 typedef pcl::PointCloud<MyPoint> MyCloud;
 

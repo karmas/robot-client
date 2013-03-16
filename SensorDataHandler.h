@@ -24,6 +24,8 @@ class SensorDataHandler {
 public:
   virtual void request() = 0;
   virtual MyCloud::Ptr displayCloud() = 0;
+  virtual void writeTo(const std::string &outDir) = 0;
+
 protected:
   SensorDataHandler(ArClientBase *client, const char *dataName,
       		    int requestFreq);
@@ -42,9 +44,10 @@ class SensorDataLaserHandler : public SensorDataHandler {
 public:
   SensorDataLaserHandler(ArClientBase *client, const HostInfo &hostInfo);
   ~SensorDataLaserHandler();
-  void handle(ArNetPacket *packet);
   void request();
+  void handle(ArNetPacket *packet);
   MyCloud::Ptr displayCloud();
+  void writeTo(const std::string &outDir);
 
   static const double pi;
   static const double toRadian;
@@ -52,96 +55,32 @@ public:
 private:
   void updateRobotLocation(ArNetPacket *packet, long timeStamp);
   void updateLaserReadings(ArNetPacket *packet, long timeStamp);
+  void filterRobotLocation(MyPoint &measured);
 
   ArFunctor1C<SensorDataLaserHandler, ArNetPacket *> myHandleFtr;
   std::vector<RobotInfo *> myRobotInfos;
+  MyCloud::Ptr myRobotCloud;
   const int myRobotColor;
   std::vector<TimeStampedPCL *> myLaserClouds;
   const int myLaserColor;
   const TransformInfo myTransformInfo;
   const double myCosTheta;
   const double mySinTheta;
-};
-
-
-
-
-// This class handles output data from server. Currently it supports the
-// built in Aria server services: ArServerInfoRobot and ArServerInfoSensor
-class OutputHandler {
-public:
-  OutputHandler(ArClientBase *client, PCLViewer *viewer, int robotColor);
-  virtual ~OutputHandler();
-
-  MyCloud::Ptr getRobotCloud() { return myRobotCloud; }
-  MyCloud::Ptr getRobotCloudFiltered() { return myRobotCloudFiltered; }
-  ArClientBase *getClient() { return myClient; }
-
-protected:
-  std::vector<RobotInfo *> myRobotInfos;
-  ArClientBase *myClient;
-  PCLViewer *myViewer;
-  MyCloud::Ptr myRobotCloud;
-  int myRobotColor;
   MyPoint myVoxelLeaf;
   MyCloud::Ptr myRobotCloudFiltered;
-  cv::KalmanFilter *kalmanFilter;
-
-  static const int myDensityDivisor;
-
-private:
+  cv::KalmanFilter *myKalmanFilter;
 };
 
 
 
-
-// This class provides functionality to handle PCL data packets from server
-// and displaying them in a PCL viewer.
-class PCLOutputHandler : public OutputHandler {
-public:
-  PCLOutputHandler(ArClientBase *client, PCLViewer *viewer, int robotColor,
-		   int color, int xo, int yo, int to, int rf = 1000);
-  ~PCLOutputHandler();
-  void handlePCLdata(ArNetPacket *packet);
-  std::vector<TimeStampedPCL *> *getLaserClouds() {
-    return &myLaserClouds;
-  }
-  MyCloud::Ptr getLaserCloud() { return myLaserCloud; }
-  int getRequestFreq() { return myRequestFreq; }
-
-  static const double pi;
-  static const double toRadian;
-
-private:
-  std::vector<TimeStampedPCL *> myLaserClouds;
-  // This cloud is an aggregate of all points in the list.
-  // CloudViewer is refreshed each time a new cloud is added to it.
-  // If we added each new cloud to the viewer, it would keep refreshing.
-  // To remedy this, a separate cloud is needed to store all the points.
-  MyCloud::Ptr myLaserCloud;
-  ArFunctor1C<PCLOutputHandler, ArNetPacket *> handlePCLdataftr;
-  int myColor;
-  int myXoffset;
-  int myYoffset;
-  int myThetaOffset;
-  int myRequestFreq;
-  double myCosTheta;
-  double mySinTheta;
-  MyPoint myMinVals;
-  MyPoint myMaxVals;
-
-
-  void setMinMax(const MyPoint &point);
-  void printClouds();
-  void filterRobotLocation(MyPoint &measured);
-};
-
-
-
-// creates sensor data handler objects using given host info
+// helper functions for sensor data handlers
 void createSensorDataHandlers(
     std::vector<ArClientBase *> &clients,
     std::vector<SensorDataHandler *> &sensorDataHandlers,
     std::vector<HostInfo> &hostsInfo);
+void writeSensorDataToDisk(
+    std::vector<SensorDataHandler *> &sensorDataHandlers);
+
+
 
 #endif
