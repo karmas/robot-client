@@ -50,3 +50,12 @@ void SensorDataViewer::request()
   for (size_t i = 0; i < mySensorDataHandlers.size(); i++)
     mySensorDataHandlers[i]->request();
 }
+
+
+// create a viewer
+void createViewer(SensorDataViewer *&viewer,
+    std::vector<SensorDataHandler *> &sensorDataHandlers)
+{
+  viewer = new SensorDataViewer("SENSOR DATA VIEW", sensorDataHandlers);
+}
+

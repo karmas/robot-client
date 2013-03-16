@@ -81,13 +81,15 @@ SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
   myKalmanFilter->statePost.at<float>(1) = 0 + myTransformInfo.yOffset;
 }
 
-// stop the data requests
+// stop the data requests and free up resources
 SensorDataLaserHandler::~SensorDataLaserHandler()
 {
   myClient->requestStop(myDataName);
-
+  for (size_t i = 0; i < myRobotInfos.size(); i++)
+    delete myRobotInfos[i];
   for (size_t i = 0; i < myLaserClouds.size(); i++)
     delete myLaserClouds[i];
+  delete myKalmanFilter;
 }
 
 // Decode the data packet received

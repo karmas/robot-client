@@ -4,6 +4,8 @@
 
 #include "helpers.h"
 #include "ConfigFileReader.h"
+#include "SensorDataViewer.h"
+#include "SensorDataHandler.h"
 
 
 // some message display routines
@@ -148,3 +150,31 @@ long getElapsedTime()
     return milliSecondsPassed;
   }
 }
+
+// create key press handlers
+void createKeyHandlers(
+    ArKeyHandler &keyHandler,
+    std::vector<SensorDataHandler *> &sensorDataHandlers,
+    SensorDataViewer *&viewer)
+{
+  // keypress to exit program
+  //ArGlobalFunctor *escapeFtr = new ArGlobalFunctor(escapePressed);
+  ArFunctor *escapeFtr = new ArGlobalFunctor(escapePressed);
+  keyHandler.addKeyHandler(ArKeyHandler::ESCAPE, escapeFtr);
+
+  // keypress to start viewer
+  ArFunctor *startViewerFtr = 
+    new ArGlobalFunctor2< SensorDataViewer *&,
+	std::vector<SensorDataHandler *>& >
+    (createViewer, viewer, sensorDataHandlers);
+  keyHandler.addKeyHandler('b', startViewerFtr);
+  echo("PRESS B IN TERMINAL TO START VIEWER");
+
+  // keypress to write cloud files
+  ArFunctor *writeToFileFtr = 
+    new ArGlobalFunctor1< std::vector<SensorDataHandler *>& >
+    (writeSensorDataToDisk, sensorDataHandlers);
+  keyHandler.addKeyHandler('p', writeToFileFtr);
+  echo("PRESS P IN TERMINAL TO WRITE POINT CLOUDS");
+}
+

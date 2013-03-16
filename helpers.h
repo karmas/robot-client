@@ -7,6 +7,8 @@
 
 // forward declaratiosn
 struct HostInfo;
+class SensorDataHandler;
+class SensorDataViewer;
 
 
 // some message display routines
@@ -23,5 +25,9 @@ void startClients(std::vector<ArClientBase *> clients);
 std::string genTimeStr();
 bool genDir(const std::string &dirName);
 long getElapsedTime();
+void createKeyHandlers(
+    ArKeyHandler &keyHandler,
+    std::vector<SensorDataHandler *> &sensorDataHandlers,
+    SensorDataViewer *&viewer);
 
 #endif

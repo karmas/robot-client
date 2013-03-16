@@ -43,6 +43,7 @@
 #include "SensorDataViewer.h"
 
 
+
 // main main
 int main(int argc, char **argv)
 {
@@ -76,9 +77,6 @@ int main(int argc, char **argv)
   // create the keyhandler which allows manipulating the robots
   ArKeyHandler keyHandler;
   Aria::setKeyHandler(&keyHandler);
-  // For safety let the ESC key exist the clients
-  ArGlobalFunctor escapeftr(&escapePressed);
-  keyHandler.addKeyHandler(ArKeyHandler::ESCAPE, &escapeftr);
 
   // keyboard movement controls
   MoveRobot moveRobot(&keyHandler, clients);
@@ -99,18 +97,14 @@ int main(int argc, char **argv)
   startClients(clients);
   // create the sensor data handlers for the clients
   createSensorDataHandlers(clients, sensorDataHandlers, hostsInfo);
-  SensorDataViewer viewer("SensorDataViewer FRCV", sensorDataHandlers);
+  SensorDataViewer *viewer = NULL;
+
+  // create key press handlers
+  createKeyHandlers(keyHandler, sensorDataHandlers, viewer);
 
   // a pointer to one of the clients needed for continuous running
   // of client program
   ArClientBase *client = clients[0];
-
-  // Functor for handling creation of point cloud file
-  // the function appends '.pcd' extension
-  ArGlobalFunctor1< std::vector<SensorDataHandler *>& >
-    writeToFileFtr(writeSensorDataToDisk, sensorDataHandlers);
-  keyHandler.addKeyHandler('p', &writeToFileFtr);
-  echo("PRESS P IN TERMINAL TO WRITE POINT CLOUDS");
 
   // breathing time for inital setup procedures
   ArUtil::sleep(500);
@@ -123,8 +117,8 @@ int main(int argc, char **argv)
     if (moveRobot.manMode) moveRobot.sendInput();
     ArUtil::sleep(100);
 
-    // refresh the viewer
-    viewer.updateDisplay();
+    // refresh the viewer if it exists
+    if (viewer) viewer->updateDisplay();
   }
 
   Aria::shutdown();

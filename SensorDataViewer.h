@@ -31,4 +31,8 @@ private:
 };
 
 
+
+void createViewer(SensorDataViewer *&viewer,
+    std::vector<SensorDataHandler *> &sensorDataHandlers);
+
 #endif
