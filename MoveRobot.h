@@ -16,10 +16,14 @@ public:
   virtual void wander() = 0;
   virtual void stop() = 0;
   virtual void unsafe() = 0;
+  virtual void nextRobot() = 0;
+  virtual void prevRobot() = 0;
 
 protected:
-  MoveHandler(ArClientBase *client);
+  MoveHandler(std::vector<ArClientBase *> &clients);
 
+  std::vector<ArClientBase *> &myClients;
+  int myClientIndex;
   ArClientBase *myClient;
   double myTransRatio;
   double myRotRatio;
@@ -31,7 +35,8 @@ protected:
 // Move using keyboard
 class MoveKeyBoardHandler : public MoveHandler {
 public:
-  MoveKeyBoardHandler(ArClientBase *client, ArKeyHandler *keyHandler);
+  MoveKeyBoardHandler(std::vector<ArClientBase *> &clients,
+      ArKeyHandler *keyHandler);
 
 private:
   void update();
@@ -43,6 +48,8 @@ private:
   void wander();
   void stop();
   void unsafe();
+  void nextRobot();
+  void prevRobot();
 
   ArKeyHandler *myKeyHandler;
   ArFunctorC<MoveKeyBoardHandler> myForwardFtr;
@@ -52,6 +59,8 @@ private:
   ArFunctorC<MoveKeyBoardHandler> myWanderFtr;
   ArFunctorC<MoveKeyBoardHandler> myStopFtr;
   ArFunctorC<MoveKeyBoardHandler> myUnsafeFtr;
+  ArFunctorC<MoveKeyBoardHandler> myNextRobotFtr;
+  ArFunctorC<MoveKeyBoardHandler> myPrevRobotFtr;
 };
 
 // This class houses the functions which handle keyboard events

@@ -22,9 +22,10 @@ int moveKeys[] = {
 };
 
 
-MoveHandler::MoveHandler(ArClientBase *client)
-  : myClient(client), myTransRatio(0), myRotRatio(0),
-    mySpeedLimit(80), myIsWandering(false), myIsSafe(true)
+MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients)
+  : myClients(clients), myClientIndex(0), myClient(myClients[0]),
+    myTransRatio(0), myRotRatio(0), mySpeedLimit(80),
+    myIsWandering(false), myIsSafe(true)
 {
 }
 
@@ -32,15 +33,18 @@ MoveHandler::MoveHandler(ArClientBase *client)
 
 // Attach keypress handlers
 MoveKeyBoardHandler::MoveKeyBoardHandler(
-    ArClientBase *client, ArKeyHandler *keyHandler)
-  : MoveHandler(client), myKeyHandler(keyHandler),
+    std::vector<ArClientBase *> &clients,
+    ArKeyHandler *keyHandler)
+  : MoveHandler(clients), myKeyHandler(keyHandler),
     myForwardFtr(this, &MoveKeyBoardHandler::forward),
     myBackwardFtr(this, &MoveKeyBoardHandler::backward),
     myTurnLeftFtr(this, &MoveKeyBoardHandler::turnLeft),
     myTurnRightFtr(this, &MoveKeyBoardHandler::turnRight),
     myWanderFtr(this, &MoveKeyBoardHandler::wander),
     myStopFtr(this, &MoveKeyBoardHandler::stop),
-    myUnsafeFtr(this, &MoveKeyBoardHandler::unsafe)
+    myUnsafeFtr(this, &MoveKeyBoardHandler::unsafe),
+    myNextRobotFtr(this, &MoveKeyBoardHandler::nextRobot),
+    myPrevRobotFtr(this, &MoveKeyBoardHandler::prevRobot)
 {
   myKeyHandler->addKeyHandler(moveKeys[0], &myForwardFtr);
   myKeyHandler->addKeyHandler(moveKeys[1], &myBackwardFtr);
@@ -48,7 +52,9 @@ MoveKeyBoardHandler::MoveKeyBoardHandler(
   myKeyHandler->addKeyHandler(moveKeys[3], &myTurnRightFtr);
   myKeyHandler->addKeyHandler(moveKeys[4], &myWanderFtr);
   myKeyHandler->addKeyHandler(moveKeys[6], &myStopFtr);
-  myKeyHandler->addKeyHandler(moveKeys[7], &myUnsafeFtr);
+  myKeyHandler->addKeyHandler(moveKeys[9], &myUnsafeFtr);
+  myKeyHandler->addKeyHandler(moveKeys[7], &myNextRobotFtr);
+  myKeyHandler->addKeyHandler(moveKeys[8], &myPrevRobotFtr);
 }
 
 // For keyboard, the key press checking is done
@@ -122,6 +128,23 @@ void MoveKeyBoardHandler::unsafe()
   myClient->requestOnce("setSafeDrive", &packet);
 }
 
+// control next robot
+void MoveKeyBoardHandler::nextRobot()
+{
+  myClientIndex++;
+  if (myClientIndex >= myClients.size()) myClientIndex = 0;
+  myClient = myClients[myClientIndex];
+  echo("keyboard controls", myClient->getRobotName());
+}
+
+// control previous robot
+void MoveKeyBoardHandler::prevRobot()
+{
+  if (myClientIndex == 0) myClientIndex = myClients.size() - 1;
+  else myClientIndex--;
+  myClient = myClients[myClientIndex];
+  echo("keyboard controls", myClient->getRobotName());
+}
 
 
 

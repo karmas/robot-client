@@ -109,7 +109,7 @@ int main(int argc, char **argv)
   // breathing time for inital setup procedures
   ArUtil::sleep(500);
 
-  MoveHandler *moveHandler = new MoveKeyBoardHandler(client, &keyHandler);
+  MoveHandler *moveHandler = new MoveKeyBoardHandler(clients, &keyHandler);
 
   // Continally check the keyboard presses.
   while (client->getRunningWithLock()) {
