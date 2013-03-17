@@ -3,6 +3,57 @@
 
 #include "ArNetworking.h"
 
+// Abstract base class to provide an interface for
+// moving client robots
+class MoveHandler {
+public:
+  virtual void update() = 0;
+  virtual void forward() = 0;
+  virtual void backward() = 0;
+  virtual void turnLeft() = 0;
+  virtual void turnRight() = 0;
+  virtual void ratioDrive() = 0;
+  virtual void wander() = 0;
+  virtual void stop() = 0;
+  virtual void unsafe() = 0;
+
+protected:
+  MoveHandler(ArClientBase *client);
+
+  ArClientBase *myClient;
+  double myTransRatio;
+  double myRotRatio;
+  double mySpeedLimit;
+  bool myIsWandering;
+  bool myIsSafe;
+};
+
+// Move using keyboard
+class MoveKeyBoardHandler : public MoveHandler {
+public:
+  MoveKeyBoardHandler(ArClientBase *client, ArKeyHandler *keyHandler);
+
+private:
+  void update();
+  void forward();
+  void backward();
+  void turnLeft();
+  void turnRight();
+  void ratioDrive();
+  void wander();
+  void stop();
+  void unsafe();
+
+  ArKeyHandler *myKeyHandler;
+  ArFunctorC<MoveKeyBoardHandler> myForwardFtr;
+  ArFunctorC<MoveKeyBoardHandler> myBackwardFtr;
+  ArFunctorC<MoveKeyBoardHandler> myTurnLeftFtr;
+  ArFunctorC<MoveKeyBoardHandler> myTurnRightFtr;
+  ArFunctorC<MoveKeyBoardHandler> myWanderFtr;
+  ArFunctorC<MoveKeyBoardHandler> myStopFtr;
+  ArFunctorC<MoveKeyBoardHandler> myUnsafeFtr;
+};
+
 // This class houses the functions which handle keyboard events
 // for setting the various robot modes and driving the robot
 // The keys can be defined by the user as an array of characters.

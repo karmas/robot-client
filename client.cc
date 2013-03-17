@@ -79,7 +79,7 @@ int main(int argc, char **argv)
   Aria::setKeyHandler(&keyHandler);
 
   // keyboard movement controls
-  MoveRobot moveRobot(&keyHandler, clients);
+  //MoveRobot moveRobot(&keyHandler, clients);
 
   // joystick support for client one
   ArJoyHandler joyHandler;
@@ -109,12 +109,18 @@ int main(int argc, char **argv)
   // breathing time for inital setup procedures
   ArUtil::sleep(500);
 
+  MoveHandler *moveHandler = new MoveKeyBoardHandler(client, &keyHandler);
+
   // Continally check the keyboard presses.
   while (client->getRunningWithLock()) {
     keyHandler.checkKeys();
+    moveHandler->update();
+
+    /*
     // 1st client gets joystick handling
     if (joySupport) checkJoy(&joyHandler, clients);
     if (moveRobot.manMode) moveRobot.sendInput();
+    */
     ArUtil::sleep(100);
 
     // refresh the viewer if it exists

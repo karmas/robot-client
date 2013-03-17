@@ -5,6 +5,128 @@
 #include "helpers.h"
 
 // these keys control the movement of the robot
+int moveKeys[] = { 
+  ArKeyHandler::UP,
+  ArKeyHandler::DOWN,
+  ArKeyHandler::LEFT,
+  ArKeyHandler::RIGHT,
+  'a',
+  'd',
+  's',
+  ArKeyHandler::PAGEUP,
+  ArKeyHandler::PAGEDOWN,
+  'q',
+  'w',
+  'f',
+  'g',
+};
+
+
+MoveHandler::MoveHandler(ArClientBase *client)
+  : myClient(client), myTransRatio(0), myRotRatio(0),
+    mySpeedLimit(80), myIsWandering(false), myIsSafe(true)
+{
+}
+
+
+
+// Attach keypress handlers
+MoveKeyBoardHandler::MoveKeyBoardHandler(
+    ArClientBase *client, ArKeyHandler *keyHandler)
+  : MoveHandler(client), myKeyHandler(keyHandler),
+    myForwardFtr(this, &MoveKeyBoardHandler::forward),
+    myBackwardFtr(this, &MoveKeyBoardHandler::backward),
+    myTurnLeftFtr(this, &MoveKeyBoardHandler::turnLeft),
+    myTurnRightFtr(this, &MoveKeyBoardHandler::turnRight),
+    myWanderFtr(this, &MoveKeyBoardHandler::wander),
+    myStopFtr(this, &MoveKeyBoardHandler::stop),
+    myUnsafeFtr(this, &MoveKeyBoardHandler::unsafe)
+{
+  myKeyHandler->addKeyHandler(moveKeys[0], &myForwardFtr);
+  myKeyHandler->addKeyHandler(moveKeys[1], &myBackwardFtr);
+  myKeyHandler->addKeyHandler(moveKeys[2], &myTurnLeftFtr);
+  myKeyHandler->addKeyHandler(moveKeys[3], &myTurnRightFtr);
+  myKeyHandler->addKeyHandler(moveKeys[4], &myWanderFtr);
+  myKeyHandler->addKeyHandler(moveKeys[6], &myStopFtr);
+  myKeyHandler->addKeyHandler(moveKeys[7], &myUnsafeFtr);
+}
+
+// For keyboard, the key press checking is done
+// by the keyhandler so only send the movement
+// values
+void MoveKeyBoardHandler::update()
+{
+  if (!myClient->dataExists("ratioDrive") || myIsWandering) return;
+
+  ArNetPacket packet;
+  packet.doubleToBuf(myTransRatio);
+  packet.doubleToBuf(myRotRatio);
+  packet.doubleToBuf(mySpeedLimit);
+
+  myClient->requestOnce("ratioDrive", &packet);
+  myTransRatio = 0;
+  myRotRatio = 0;
+}
+
+void MoveKeyBoardHandler::forward() { myTransRatio = 100; }
+void MoveKeyBoardHandler::backward() { myTransRatio = -100; }
+void MoveKeyBoardHandler::turnLeft() { myRotRatio = 100; }
+void MoveKeyBoardHandler::turnRight() { myRotRatio = -100; }
+
+void MoveKeyBoardHandler::ratioDrive()
+{
+}
+
+// alternate between wander and normal mode
+void MoveKeyBoardHandler::wander()
+{
+  if (!myClient->dataExists("wander")) return;
+
+  myIsWandering = !myIsWandering;
+
+  if (myIsWandering) {
+    myClient->requestOnce("wander");
+    std::cout << "\t" << myClient->getRobotName() 
+      << " wander mode" << std::endl;
+  }
+  else stop();
+}
+
+// stop the robot
+void MoveKeyBoardHandler::stop()
+{
+  if (!myClient->dataExists("stop")) return;
+  myClient->requestOnce("stop");
+  std::cout << "\t" << myClient->getRobotName() 
+    << " stop mode" << std::endl;
+}
+
+// alternate between unsafe and safe drive
+void MoveKeyBoardHandler::unsafe()
+{
+  if (!myClient->dataExists("setSafeDrive") || myIsWandering) return;
+
+  myIsSafe = !myIsSafe;
+
+  ArNetPacket packet;
+  if (myIsSafe) {
+    packet.byteToBuf(1);
+    std::cout << "\t" << myClient->getRobotName() 
+      << " safe drive" << std::endl;
+  }
+  else {
+    packet.byteToBuf(0);
+    std::cout << "\t" << myClient->getRobotName() 
+      << " unsafe drive" << std::endl;
+  }
+  myClient->requestOnce("setSafeDrive", &packet);
+}
+
+
+
+
+
+// these keys control the movement of the robot
 int MoveRobot::moveKeys[] = { 
   ArKeyHandler::UP,
   ArKeyHandler::DOWN,
@@ -20,6 +142,8 @@ int MoveRobot::moveKeys[] = {
   'f',
   'g',
 };
+
+
 // information on what kind of movement the corresponding key performs
 const char *MoveRobot::moveKeysInfo[] = {
   "move forward",
