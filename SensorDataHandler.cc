@@ -26,6 +26,9 @@ SensorDataHandler::~SensorDataHandler()
   delete myDataName;
 }
 
+////////////////////////////////////////////////////////////////////
+// SensorDataLaserHandler
+////////////////////////////////////////////////////////////////////
 
 const double SensorDataLaserHandler::pi = 3.14159165f;
 const double SensorDataLaserHandler::toRadian = pi/180;
@@ -247,7 +250,75 @@ void SensorDataLaserHandler::writeTo(const std::string &outDir)
   }
 }
 
+////////////////////////////////////////////////////////////////////
+// SensorDataStereoCamHandler
+////////////////////////////////////////////////////////////////////
 
+SensorDataStereoCamHandler::SensorDataStereoCamHandler(ArClientBase *client,
+    const HostInfo &hostInfo)
+  : SensorDataHandler(client, "getSensorDataStereoCam", hostInfo.requestFreq),
+    myHandleFtr(this, &SensorDataStereoCamHandler::handle)
+{
+  myClient->addHandler(myDataName, &myHandleFtr);
+}
+
+// stop the data requests and free up resources
+SensorDataStereoCamHandler::~SensorDataStereoCamHandler()
+{
+  myClient->requestStop(myDataName);
+}
+
+void SensorDataStereoCamHandler::request()
+{
+  myClient->request(myDataName, myRequestFreq);
+}
+
+// Decodes packet received from stereocamera
+void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
+{
+  // Retrieve header information
+  int height = packet->bufToByte4();
+  int width = packet->bufToByte4();
+  int channels = packet->bufToByte4();
+
+  MyPoint point;
+  double coordVal;
+  char colorVal;
+
+  // create a point using data section of packet
+  for (int i = 0; i < height; i++) {
+    for (int j = 0; j < width; j++) {
+      // get co-ordinate information
+      point.x = static_cast<float>(packet->bufToDouble());
+      point.y = static_cast<float>(packet->bufToDouble());
+      point.z = static_cast<float>(packet->bufToDouble());
+      // get color information
+      point.r = packet->bufToByte();
+      point.g = packet->bufToByte();
+      point.b = packet->bufToByte();
+      // add point to the cloud
+      myDisplayCloud->push_back(point);
+    }
+  }
+}
+
+// used by viewer
+MyCloud::Ptr SensorDataStereoCamHandler::displayCloud()
+{
+  return myDisplayCloud;
+}
+
+// write stereo camera data to files in given directory
+void SensorDataStereoCamHandler::writeTo(const std::string &outDir)
+{
+  echo("No writing support for stereo camera data");
+}
+
+
+
+////////////////////////////////////////////////////////////////////
+// Helper Functions
+////////////////////////////////////////////////////////////////////
 
 // Create sensor data handler objects
 void createSensorDataHandlers(
@@ -258,8 +329,12 @@ void createSensorDataHandlers(
   SensorDataHandler *sensorDataHandler = NULL;
 
   for (unsigned int i = 0; i < clients.size(); i++) {
-    sensorDataHandler = 
-      new SensorDataLaserHandler(clients[i], hostsInfo[i]);
+    if (true)
+      sensorDataHandler = 
+	new SensorDataLaserHandler(clients[i], hostsInfo[i]);
+    else
+      sensorDataHandler = 
+	new SensorDataStereoCamHandler(clients[i], hostsInfo[i]);
     sensorDataHandlers.push_back(sensorDataHandler);
   }
 }
@@ -282,3 +357,5 @@ void writeSensorDataToDisk(
 
   std::cout << "Wrote sensor data to: " << outDir << std::endl;
 }
+
+

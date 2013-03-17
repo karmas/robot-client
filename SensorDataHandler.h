@@ -71,6 +71,20 @@ private:
   cv::KalmanFilter *myKalmanFilter;
 };
 
+// handle stereo camera data
+class SensorDataStereoCamHandler : public SensorDataHandler {
+public:
+  SensorDataStereoCamHandler(ArClientBase *client, const HostInfo &hostInfo);
+  ~SensorDataStereoCamHandler();
+  void request();
+  void handle(ArNetPacket *packet);
+  MyCloud::Ptr displayCloud();
+  void writeTo(const std::string &outDir);
+
+private:
+  ArFunctor1C<SensorDataStereoCamHandler, ArNetPacket *> myHandleFtr;
+};
+
 
 
 // helper functions for sensor data handlers
