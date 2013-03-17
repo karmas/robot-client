@@ -4,26 +4,10 @@
 #include "MoveRobot.h"
 #include "helpers.h"
 
-// these keys control the movement of the robot
-int moveKeys[] = { 
-  ArKeyHandler::UP,
-  ArKeyHandler::DOWN,
-  ArKeyHandler::LEFT,
-  ArKeyHandler::RIGHT,
-  'a',
-  'd',
-  's',
-  ArKeyHandler::PAGEUP,
-  ArKeyHandler::PAGEDOWN,
-  'q',
-  'w',
-  'f',
-  'g',
-};
-
-
-MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients)
-  : myClients(clients), myClientIndex(0), myClient(myClients[0]),
+MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients,
+    std::vector<int> &keys, std::vector<std::string> &keysInfo)
+  : myClients(clients), myKeys(keys), myKeysInfo(keysInfo),
+    myClientIndex(0), myClient(myClients[0]),
     myTransRatio(0), myRotRatio(0), mySpeedLimit(80),
     myIsWandering(false), myIsSafe(true)
 {
@@ -34,8 +18,10 @@ MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients)
 // Attach keypress handlers
 MoveKeyBoardHandler::MoveKeyBoardHandler(
     std::vector<ArClientBase *> &clients,
+    std::vector<int> &keys, std::vector<std::string> &keysInfo,
     ArKeyHandler *keyHandler)
-  : MoveHandler(clients), myKeyHandler(keyHandler),
+  : MoveHandler(clients, keys, keysInfo), 
+    myKeyHandler(keyHandler),
     myForwardFtr(this, &MoveKeyBoardHandler::forward),
     myBackwardFtr(this, &MoveKeyBoardHandler::backward),
     myTurnLeftFtr(this, &MoveKeyBoardHandler::turnLeft),
@@ -46,15 +32,17 @@ MoveKeyBoardHandler::MoveKeyBoardHandler(
     myNextRobotFtr(this, &MoveKeyBoardHandler::nextRobot),
     myPrevRobotFtr(this, &MoveKeyBoardHandler::prevRobot)
 {
-  myKeyHandler->addKeyHandler(moveKeys[0], &myForwardFtr);
-  myKeyHandler->addKeyHandler(moveKeys[1], &myBackwardFtr);
-  myKeyHandler->addKeyHandler(moveKeys[2], &myTurnLeftFtr);
-  myKeyHandler->addKeyHandler(moveKeys[3], &myTurnRightFtr);
-  myKeyHandler->addKeyHandler(moveKeys[4], &myWanderFtr);
-  myKeyHandler->addKeyHandler(moveKeys[6], &myStopFtr);
-  myKeyHandler->addKeyHandler(moveKeys[9], &myUnsafeFtr);
-  myKeyHandler->addKeyHandler(moveKeys[7], &myNextRobotFtr);
-  myKeyHandler->addKeyHandler(moveKeys[8], &myPrevRobotFtr);
+  myKeyHandler->addKeyHandler(myKeys[0], &myForwardFtr);
+  myKeyHandler->addKeyHandler(myKeys[1], &myBackwardFtr);
+  myKeyHandler->addKeyHandler(myKeys[2], &myTurnLeftFtr);
+  myKeyHandler->addKeyHandler(myKeys[3], &myTurnRightFtr);
+  myKeyHandler->addKeyHandler(myKeys[4], &myWanderFtr);
+  myKeyHandler->addKeyHandler(myKeys[5], &myStopFtr);
+  myKeyHandler->addKeyHandler(myKeys[6], &myUnsafeFtr);
+  myKeyHandler->addKeyHandler(myKeys[7], &myNextRobotFtr);
+  myKeyHandler->addKeyHandler(myKeys[8], &myPrevRobotFtr);
+
+  displayKeys();
 }
 
 // For keyboard, the key press checking is done
@@ -74,14 +62,16 @@ void MoveKeyBoardHandler::update()
   myRotRatio = 0;
 }
 
+// print keys and description on command line
+void MoveKeyBoardHandler::displayKeys()
+{
+}
+
+// fix movement values
 void MoveKeyBoardHandler::forward() { myTransRatio = 100; }
 void MoveKeyBoardHandler::backward() { myTransRatio = -100; }
 void MoveKeyBoardHandler::turnLeft() { myRotRatio = 100; }
 void MoveKeyBoardHandler::turnRight() { myRotRatio = -100; }
-
-void MoveKeyBoardHandler::ratioDrive()
-{
-}
 
 // alternate between wander and normal mode
 void MoveKeyBoardHandler::wander()
@@ -146,85 +136,6 @@ void MoveKeyBoardHandler::prevRobot()
   echo("keyboard controls", myClient->getRobotName());
 }
 
-
-
-
-// these keys control the movement of the robot
-int MoveRobot::moveKeys[] = { 
-  ArKeyHandler::UP,
-  ArKeyHandler::DOWN,
-  ArKeyHandler::LEFT,
-  ArKeyHandler::RIGHT,
-  'a',
-  'd',
-  's',
-  ArKeyHandler::PAGEUP,
-  ArKeyHandler::PAGEDOWN,
-  'q',
-  'w',
-  'f',
-  'g',
-};
-
-
-// information on what kind of movement the corresponding key performs
-const char *MoveRobot::moveKeysInfo[] = {
-  "move forward",
-  "move backward",
-  "rotate left",
-  "rotate right",
-  "auto mode",
-  "drive mode",
-  "stop mode",
-  "control previous robot",
-  "control next robot",
-  "all auto mode",
-  "all stop mode",
-  "safe drive",
-  "unsafe drive",
-};
-
-MoveRobot::MoveRobot(ArKeyHandler *keyHandler,
-    		     std::vector<ArClientBase *> &clients)
-  : myKeyHandler(keyHandler), myClients(clients),
-    myClient(clients[0]), myClientIndex(0),
-    manMode(false), myTransRatio(0.0), myRotRatio(0.0),
-    upftr(this, &MoveRobot::up),
-    downftr(this, &MoveRobot::down),
-    leftftr(this, &MoveRobot::left),
-    rightftr(this, &MoveRobot::right),
-    autoMoveftr(this, &MoveRobot::autoMove),
-    manMoveftr(this, &MoveRobot::manMove),
-    stopMoveftr(this, &MoveRobot::stopMove),
-    prevRobotftr(this, &MoveRobot::prevRobot),
-    nextRobotftr(this, &MoveRobot::nextRobot),
-    allAutoMoveftr(this, &MoveRobot::allAutoMove),
-    allStopMoveftr(this, &MoveRobot::allStopMove),
-    safeDriveftr(this, &MoveRobot::safeDrive),
-    unSafeDriveftr(this, &MoveRobot::unSafeDrive)
-{
-  myKeyHandler->addKeyHandler(moveKeys[0], &upftr);
-  myKeyHandler->addKeyHandler(moveKeys[1], &downftr);
-  myKeyHandler->addKeyHandler(moveKeys[2], &leftftr);
-  myKeyHandler->addKeyHandler(moveKeys[3], &rightftr);
-  myKeyHandler->addKeyHandler(moveKeys[4], &autoMoveftr);
-  myKeyHandler->addKeyHandler(moveKeys[5], &manMoveftr);
-  myKeyHandler->addKeyHandler(moveKeys[6], &stopMoveftr);
-  myKeyHandler->addKeyHandler(moveKeys[7], &prevRobotftr);
-  myKeyHandler->addKeyHandler(moveKeys[8], &nextRobotftr);
-  myKeyHandler->addKeyHandler(moveKeys[9], &allAutoMoveftr);
-  myKeyHandler->addKeyHandler(moveKeys[10], &allStopMoveftr);
-  myKeyHandler->addKeyHandler(moveKeys[11], &safeDriveftr);
-  myKeyHandler->addKeyHandler(moveKeys[12], &unSafeDriveftr);
-  displayKeys();
-}
-
-// Request the robots to stop 
-MoveRobot::~MoveRobot()
-{
-  myClient->requestOnce("stop");
-}
-
 static std::string moveKeyToString(int c)
 {
   std::string keyName;
@@ -254,8 +165,11 @@ static std::string moveKeyToString(int c)
   return keyName;
 }
 
+int moveKeys[10];
+int moveKeysInfo[10];
+
 // Tell the user about the control keys
-void MoveRobot::displayKeys() 
+void displayKeys() 
 {
   const int leftMargin = 5;
   const int keyColWidth = 20;
@@ -279,125 +193,6 @@ void MoveRobot::displayKeys()
   std::cout << std::endl;
 }
 
-void MoveRobot::up() { myTransRatio = 100; }
-void MoveRobot::down() { myTransRatio = -100; }
-void MoveRobot::left() { myRotRatio = 100; }
-void MoveRobot::right() { myRotRatio = -100; }
-
-// sets server robot to wander
-void MoveRobot::autoMove()
-{
-  // check if server supports automatic movement
-  if (!myClient->dataExists("wander")) return;
-  else std::cout << "\t" << myClient->getRobotName() 
-    << " auto mode" << std::endl;
-
-  // disable driving mode
-  manMode = false;
-  // ask server to wander
-  myClient->requestOnce("wander");
-  myTransRatio = 0;
-  myRotRatio = 0;
-}
-
-// sets server robot to manual drive
-void MoveRobot::manMove()
-{
-  if (!myClient->dataExists("ratioDrive")) return;
-  else std::cout << "\t" << myClient->getRobotName() 
-    << " manual mode" << std::endl;
-
-  manMode = true;
-}
-
-// stops the server robot from moving
-void MoveRobot::stopMove()
-{
-  if (!myClient->dataExists("stop")) return;
-  else std::cout << "\t" << myClient->getRobotName() 
-    << " stop mode" << std::endl;
-
-  manMode = false;
-  myClient->requestOnce("stop");
-  myTransRatio = 0;
-  myRotRatio = 0;
-}
-
-// sends a packet with velocity information based on move commands
-void MoveRobot::sendInput()
-{
-  if (!myClient->dataExists("ratioDrive")) return;
-
-  ArNetPacket packet;
-  packet.doubleToBuf(myTransRatio);
-  packet.doubleToBuf(myRotRatio);
-  packet.doubleToBuf(50);
-
-  myClient->requestOnce("ratioDrive", &packet);
-  myTransRatio = 0;
-  myRotRatio = 0;
-}
-
-// select the previous robot in case of multiple robots
-void MoveRobot::prevRobot()
-{
-  if (myClientIndex == 0) 
-    myClientIndex = myClients.size() - 1;
-  else
-    myClientIndex--;
-  myClient = myClients[myClientIndex];
-  echo("keyboard controls", myClient->getRobotName());
-}
-
-// select the next robot in case of multiple robots
-void MoveRobot::nextRobot()
-{
-  myClientIndex++;
-  if (myClientIndex >= myClients.size()) 
-    myClientIndex = 0;
-  myClient = myClients[myClientIndex];
-  echo("keyboard controls", myClient->getRobotName());
-}
-
-// all robots in automatic mode
-void MoveRobot::allAutoMove()
-{
-  echo("ALL ROBOTS IN AUTO MODE");
-  for (unsigned int i = 0; i < myClients.size(); i++)
-    myClients[i]->requestOnce("wander");
-}
-
-// all robots in stop mode
-void MoveRobot::allStopMove()
-{
-  echo("ALL ROBOTS IN STOP MODE");
-  for (unsigned int i = 0; i < myClients.size(); i++)
-    myClients[i]->requestOnce("stop");
-}
-
-// safe driving robot
-void MoveRobot::safeDrive()
-{
-  if (!myClient->dataExists("setSafeDrive")) return;
-  else std::cout << "\t" << myClient->getRobotName() 
-    << " safe drive" << std::endl;
-
-  ArNetPacket packet;
-  packet.byteToBuf(1);
-  myClient->requestOnce("setSafeDrive", &packet);
-}
-
-// not a safe driving robot
-void MoveRobot::unSafeDrive()
-{
-  if (!myClient->dataExists("setSafeDrive")) return;
-  else std::cout << "\t" << myClient->getRobotName() 
-    << " unsafe drive" << std::endl;
-
-  ArNetPacket packet;
-  packet.byteToBuf(0);
-  myClient->requestOnce("setSafeDrive", &packet);
-}
 
 
 
