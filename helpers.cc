@@ -157,24 +157,44 @@ void createKeyHandlers(
     std::vector<SensorDataHandler *> &sensorDataHandlers,
     SensorDataViewer *&viewer)
 {
+  printTitle("Supported keyboard commands");
+  const int colWidthDesc = 15;
+  const int colWidthKey = 10;
+  std::cout << std::setw(colWidthDesc) << "Action"
+    << std::setw(colWidthKey) << "Key" << std::endl
+    << std::string(colWidthDesc + colWidthKey, '-') << std::endl;
+
   // keypress to exit program
-  //ArGlobalFunctor *escapeFtr = new ArGlobalFunctor(escapePressed);
   ArFunctor *escapeFtr = new ArGlobalFunctor(escapePressed);
   keyHandler.addKeyHandler(ArKeyHandler::ESCAPE, escapeFtr);
+  std::cout << std::setw(colWidthDesc) << "EXIT PROGRAM"
+    << std::setw(colWidthKey) << "ESC" << std::endl;
 
   // keypress to start viewer
   ArFunctor *startViewerFtr = 
     new ArGlobalFunctor2< SensorDataViewer *&,
 	std::vector<SensorDataHandler *>& >
     (createViewer, viewer, sensorDataHandlers);
-  keyHandler.addKeyHandler('b', startViewerFtr);
-  echo("PRESS B IN TERMINAL TO START VIEWER");
+  keyHandler.addKeyHandler('d', startViewerFtr);
+  std::cout << std::setw(colWidthDesc) << "DATA TRANSER"
+    << std::setw(colWidthKey) << "D" << std::endl;
 
   // keypress to write cloud files
   ArFunctor *writeToFileFtr = 
     new ArGlobalFunctor1< std::vector<SensorDataHandler *>& >
     (writeSensorDataToDisk, sensorDataHandlers);
-  keyHandler.addKeyHandler('p', writeToFileFtr);
-  echo("PRESS P IN TERMINAL TO WRITE POINT CLOUDS");
+  keyHandler.addKeyHandler('c', writeToFileFtr);
+  std::cout << std::setw(colWidthDesc) << "CREATE FILES"
+    << std::setw(colWidthKey) << "C" << std::endl;
 }
 
+// print the string in a box to indicate title
+void printTitle(const std::string &title)
+{
+  const char borderSymbol = '*';
+  const std::string horizontalBorder(title.size() + 4, borderSymbol);
+
+  std::cout << std::endl << horizontalBorder << std::endl
+    << borderSymbol << ' ' << title << ' ' << borderSymbol << std::endl
+    << horizontalBorder << std::endl;
+}

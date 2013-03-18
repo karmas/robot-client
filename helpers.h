@@ -29,5 +29,6 @@ void createKeyHandlers(
     ArKeyHandler &keyHandler,
     std::vector<SensorDataHandler *> &sensorDataHandlers,
     SensorDataViewer *&viewer);
+void printTitle(const std::string &title);
 
 #endif

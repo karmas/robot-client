@@ -36,9 +36,9 @@ protected:
 };
 
 // Move using keyboard
-class MoveKeyBoardHandler : public MoveHandler {
+class MoveKeyHandler : public MoveHandler {
 public:
-  MoveKeyBoardHandler(std::vector<ArClientBase *> &clients,
+  MoveKeyHandler(std::vector<ArClientBase *> &clients,
       std::vector<int> &keys, std::vector<std::string> &keysInfo,
       ArKeyHandler *keyHandler);
   void update();
@@ -56,20 +56,23 @@ private:
   void prevRobot();
 
   ArKeyHandler *myKeyHandler;
-  ArFunctorC<MoveKeyBoardHandler> myForwardFtr;
-  ArFunctorC<MoveKeyBoardHandler> myBackwardFtr;
-  ArFunctorC<MoveKeyBoardHandler> myTurnLeftFtr;
-  ArFunctorC<MoveKeyBoardHandler> myTurnRightFtr;
-  ArFunctorC<MoveKeyBoardHandler> myWanderFtr;
-  ArFunctorC<MoveKeyBoardHandler> myStopFtr;
-  ArFunctorC<MoveKeyBoardHandler> myUnsafeFtr;
-  ArFunctorC<MoveKeyBoardHandler> myNextRobotFtr;
-  ArFunctorC<MoveKeyBoardHandler> myPrevRobotFtr;
+  ArFunctorC<MoveKeyHandler> myForwardFtr;
+  ArFunctorC<MoveKeyHandler> myBackwardFtr;
+  ArFunctorC<MoveKeyHandler> myTurnLeftFtr;
+  ArFunctorC<MoveKeyHandler> myTurnRightFtr;
+  ArFunctorC<MoveKeyHandler> myWanderFtr;
+  ArFunctorC<MoveKeyHandler> myStopFtr;
+  ArFunctorC<MoveKeyHandler> myUnsafeFtr;
+  ArFunctorC<MoveKeyHandler> myNextRobotFtr;
+  ArFunctorC<MoveKeyHandler> myPrevRobotFtr;
 };
 
 
 
 // useful movement related function declarations
+void defaultMoveKeys(std::vector<int> &moveKeys, 
+    std::vector<std::string> &moveKeysInfo);
+std::string moveKeyToString(int c);
 void checkJoy(ArJoyHandler *joy, const std::vector<ArClientBase *> &clients);
 void joyInfoDisplay();
 

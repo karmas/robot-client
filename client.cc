@@ -79,7 +79,11 @@ int main(int argc, char **argv)
   Aria::setKeyHandler(&keyHandler);
 
   // keyboard movement controls
-  //MoveRobot moveRobot(&keyHandler, clients);
+  std::vector<int> moveKeys;
+  std::vector<std::string> moveKeysInfo;
+  defaultMoveKeys(moveKeys, moveKeysInfo);
+  MoveHandler *moveKeyHandler = 
+    new MoveKeyHandler(clients, moveKeys, moveKeysInfo, &keyHandler);
 
   // joystick support for client one
   ArJoyHandler joyHandler;
@@ -109,41 +113,13 @@ int main(int argc, char **argv)
   // breathing time for inital setup procedures
   ArUtil::sleep(500);
 
-  std::vector<int> keyBoardKeys;
-  keyBoardKeys.push_back(ArKeyHandler::UP);
-  keyBoardKeys.push_back(ArKeyHandler::DOWN);
-  keyBoardKeys.push_back(ArKeyHandler::LEFT);
-  keyBoardKeys.push_back(ArKeyHandler::RIGHT);
-  keyBoardKeys.push_back('w');
-  keyBoardKeys.push_back('s');
-  keyBoardKeys.push_back('x');
-  keyBoardKeys.push_back(ArKeyHandler::PAGEDOWN);
-  keyBoardKeys.push_back(ArKeyHandler::PAGEUP);
-  std::vector<std::string> keyBoardKeysInfo;
-  keyBoardKeysInfo.push_back("move forward");
-  keyBoardKeysInfo.push_back("move backward");
-  keyBoardKeysInfo.push_back("rotate left");
-  keyBoardKeysInfo.push_back("rotate right");
-  keyBoardKeysInfo.push_back("wander on/off");
-  keyBoardKeysInfo.push_back("unsafe on/off");
-  keyBoardKeysInfo.push_back("stop mode");
-  keyBoardKeysInfo.push_back("control next robot");
-  keyBoardKeysInfo.push_back("control previous robot");
-
-  MoveHandler *moveKeyHandler = 
-    new MoveKeyBoardHandler(clients, keyBoardKeys, 
-	keyBoardKeysInfo, &keyHandler);
-
   // Continally check the keyboard presses.
   while (client->getRunningWithLock()) {
     keyHandler.checkKeys();
     moveKeyHandler->update();
 
-    /*
     // 1st client gets joystick handling
     if (joySupport) checkJoy(&joyHandler, clients);
-    if (moveRobot.manMode) moveRobot.sendInput();
-    */
     ArUtil::sleep(100);
 
     // refresh the viewer if it exists
