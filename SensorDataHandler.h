@@ -23,8 +23,9 @@
 class SensorDataHandler {
 public:
   virtual void request() = 0;
-  virtual MyCloud::Ptr displayCloud() = 0;
   virtual void writeTo(const std::string &outDir) = 0;
+  MyCloud::Ptr getDisplayCloud();
+  void writeDisplayCloud(const std::string &outDir);
 
 protected:
   SensorDataHandler(ArClientBase *client, const char *dataName,
@@ -44,10 +45,9 @@ class SensorDataLaserHandler : public SensorDataHandler {
 public:
   SensorDataLaserHandler(ArClientBase *client, const HostInfo &hostInfo);
   ~SensorDataLaserHandler();
-  void request();
-  void handle(ArNetPacket *packet);
-  MyCloud::Ptr displayCloud();
-  void writeTo(const std::string &outDir);
+  virtual void request();
+  virtual void handle(ArNetPacket *packet);
+  virtual void writeTo(const std::string &outDir);
 
   static const double pi;
   static const double toRadian;
@@ -76,8 +76,8 @@ class SensorDataStereoCamHandler : public SensorDataHandler {
 public:
   SensorDataStereoCamHandler(ArClientBase *client, const HostInfo &hostInfo);
   ~SensorDataStereoCamHandler();
-  void request();
-  void handle(ArNetPacket *packet);
+  virtual void request();
+  virtual void handle(ArNetPacket *packet);
   MyCloud::Ptr displayCloud();
   void writeTo(const std::string &outDir);
 

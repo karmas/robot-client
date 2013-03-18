@@ -26,6 +26,17 @@ SensorDataHandler::~SensorDataHandler()
   delete myDataName;
 }
 
+MyCloud::Ptr SensorDataHandler::getDisplayCloud()
+{
+  return myDisplayCloud;
+}
+
+void SensorDataHandler::writeDisplayCloud(const std::string &outDir)
+{
+  std::string filePath(outDir + '/' + "stereocamaggregate.pcd");
+  pcl::io::savePCDFile(filePath, *myDisplayCloud);
+}
+
 ////////////////////////////////////////////////////////////////////
 // SensorDataLaserHandler
 ////////////////////////////////////////////////////////////////////
@@ -107,12 +118,6 @@ void SensorDataLaserHandler::handle(ArNetPacket *packet)
 void SensorDataLaserHandler::request()
 {
   myClient->request(myDataName, myRequestFreq);
-}
-
-// Get the full cloud which will be displayed
-MyCloud::Ptr SensorDataLaserHandler::displayCloud()
-{
-  return myDisplayCloud;
 }
 
 // Extract robot location from packet and update the clouds holding
@@ -282,16 +287,14 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
   int channels = packet->bufToByte4();
 
   MyPoint point;
-  double coordVal;
-  char colorVal;
 
   // create a point using data section of packet
   for (int i = 0; i < height; i++) {
     for (int j = 0; j < width; j++) {
       // get co-ordinate information
-      point.x = static_cast<float>(packet->bufToDouble());
-      point.y = static_cast<float>(packet->bufToDouble());
-      point.z = static_cast<float>(packet->bufToDouble());
+      point.y = static_cast<float>(packet->bufToDouble()) * 1000;
+      point.z = static_cast<float>(packet->bufToDouble()) * 1000;
+      point.x = static_cast<float>(packet->bufToDouble()) * 1000;
       // get color information
       point.r = packet->bufToByte();
       point.g = packet->bufToByte();
@@ -302,16 +305,11 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
   }
 }
 
-// used by viewer
-MyCloud::Ptr SensorDataStereoCamHandler::displayCloud()
-{
-  return myDisplayCloud;
-}
-
 // write stereo camera data to files in given directory
 void SensorDataStereoCamHandler::writeTo(const std::string &outDir)
 {
-  echo("No writing support for stereo camera data");
+  echo("Only writes the aggregate cloud file");
+  writeDisplayCloud(outDir);
 }
 
 
@@ -329,7 +327,7 @@ void createSensorDataHandlers(
   SensorDataHandler *sensorDataHandler = NULL;
 
   for (unsigned int i = 0; i < clients.size(); i++) {
-    if (true)
+    if (false)
       sensorDataHandler = 
 	new SensorDataLaserHandler(clients[i], hostsInfo[i]);
     else
