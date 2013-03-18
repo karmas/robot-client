@@ -3,7 +3,7 @@ project(CLIENT)
 
 # Source files
 set(SRC
-    helpers.cc MoveRobot.cc ConfigFileReader.cc
+    helpers.cc MoveHandler.cc ConfigFileReader.cc
     PCLutils.cc SensorDataHandler.cc 
     SensorDataViewer.cc client.cc)
 # Program name
