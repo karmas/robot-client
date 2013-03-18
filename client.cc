@@ -47,7 +47,6 @@
 // main main
 int main(int argc, char **argv)
 {
-  bool joySupport = false;
   // list of information about each host
   std::vector<HostInfo> hostsInfo;
   // list of clients to connect to each server
@@ -77,28 +76,19 @@ int main(int argc, char **argv)
   // create the keyhandler which allows manipulating the robots
   ArKeyHandler keyHandler;
   Aria::setKeyHandler(&keyHandler);
-
   // keyboard movement controls
-  std::vector<int> moveKeys;
-  std::vector<std::string> moveKeysInfo;
-  defaultMoveKeys(moveKeys, moveKeysInfo);
-  MoveHandler *moveKeyHandler = 
-    new MoveKeyHandler(clients, moveKeys, moveKeysInfo, &keyHandler);
+  MoveHandler *moveKeyHandler = new MoveKeyHandler(clients, &keyHandler);
 
   // joystick support for client one
   ArJoyHandler joyHandler;
-  joySupport = joyHandler.init();
-  if (!joySupport) {
+  MoveHandler *moveJoyHandler = NULL;
+  if (!joyHandler.init()) {
     echo("Could not initialize joystick");
   }
   else {
     joyHandler.setSpeeds(50, 100);
-    std::cout << clients[0]->getRobotName() << " joystick controls\n";
-    joyInfoDisplay();
+    moveJoyHandler = new MoveJoyHandler(clients, &joyHandler);
   }
-
-  MoveHandler *moveJoyHandler = 
-    new MoveJoyHandler(clients, moveKeys, moveKeysInfo, &joyHandler);
 
   // start all the clients
   startClients(clients);
@@ -109,23 +99,15 @@ int main(int argc, char **argv)
   // create key press handlers
   createKeyHandlers(keyHandler, sensorDataHandlers, viewer);
 
-  // a pointer to one of the clients needed for continuous running
-  // of client program
-  ArClientBase *client = clients[0];
-
   // breathing time for inital setup procedures
   ArUtil::sleep(500);
 
-  // Continally check the keyboard presses.
-  while (client->getRunningWithLock()) {
+  // check for key presses, button presses and new data
+  while (clients[0]->getRunningWithLock()) {
     keyHandler.checkKeys();
     moveKeyHandler->update();
-
-    // 1st client gets joystick handling
-    if (joySupport) checkJoy(&joyHandler, clients);
+    if (moveJoyHandler) moveJoyHandler->update();
     ArUtil::sleep(100);
-
-    // refresh the viewer if it exists
     if (viewer) viewer->updateDisplay();
   }
 

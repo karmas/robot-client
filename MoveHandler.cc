@@ -4,54 +4,31 @@
 #include "MoveHandler.h"
 #include "helpers.h"
 
-MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients,
-    std::vector<int> &keys, std::vector<std::string> &keysInfo)
-  : myClients(clients), myKeys(keys), myKeysInfo(keysInfo),
-    myClientIndex(0), myClient(myClients[0]),
+// names of actions
+const char *MoveHandler::actions[] = {
+  "Move forward",
+  "Move backward",
+  "Turn left",
+  "Turn right",
+  "Wander on/off",
+  "Stop",
+  "Unsafe on/off",
+  "Next robot",
+  "Previous robot",
+  "Wander All",
+  "Stop All",
+};
+
+MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients)
+  : myClients(clients), myClientIndex(0), myClient(myClients[0]),
     myTransRatio(0), myRotRatio(0), mySpeedLimit(80),
     myIsWandering(false), myIsSafe(true)
 {
 }
 
-////////////////////////////////////////////
-//   MoveKeyHandler
-////////////////////////////////////////////
-
-// Attach keypress handlers
-MoveKeyHandler::MoveKeyHandler(
-    std::vector<ArClientBase *> &clients,
-    std::vector<int> &keys, std::vector<std::string> &keysInfo,
-    ArKeyHandler *keyHandler)
-  : MoveHandler(clients, keys, keysInfo), 
-    myKeyHandler(keyHandler),
-    myForwardFtr(this, &MoveKeyHandler::forward),
-    myBackwardFtr(this, &MoveKeyHandler::backward),
-    myTurnLeftFtr(this, &MoveKeyHandler::turnLeft),
-    myTurnRightFtr(this, &MoveKeyHandler::turnRight),
-    myWanderFtr(this, &MoveKeyHandler::wander),
-    myStopFtr(this, &MoveKeyHandler::stop),
-    myUnsafeFtr(this, &MoveKeyHandler::unsafe),
-    myNextRobotFtr(this, &MoveKeyHandler::nextRobot),
-    myPrevRobotFtr(this, &MoveKeyHandler::prevRobot)
-{
-  myKeyHandler->addKeyHandler(myKeys[0], &myForwardFtr);
-  myKeyHandler->addKeyHandler(myKeys[1], &myBackwardFtr);
-  myKeyHandler->addKeyHandler(myKeys[2], &myTurnLeftFtr);
-  myKeyHandler->addKeyHandler(myKeys[3], &myTurnRightFtr);
-  myKeyHandler->addKeyHandler(myKeys[4], &myWanderFtr);
-  myKeyHandler->addKeyHandler(myKeys[5], &myStopFtr);
-  myKeyHandler->addKeyHandler(myKeys[6], &myUnsafeFtr);
-  myKeyHandler->addKeyHandler(myKeys[7], &myNextRobotFtr);
-  myKeyHandler->addKeyHandler(myKeys[8], &myPrevRobotFtr);
-
-  displayKeys();
-}
-
-// For keyboard, the key press checking is done
-// by the keyhandler so only send the movement
-// values
-void MoveKeyHandler::update()
-{
+// send a packet containing velocity values
+void MoveHandler::ratioDrive() 
+{ 
   if (!myClient->dataExists("ratioDrive") || myIsWandering) return;
 
   ArNetPacket packet;
@@ -64,38 +41,12 @@ void MoveKeyHandler::update()
   myRotRatio = 0;
 }
 
-// print keys and description on command line
-void MoveKeyHandler::displayKeys()
-{
-  printTitle("Keyboard movement controls");
-
-  int colWidthInfo = 25;
-  int colWidthKey = 20;
-
-  std::cout << std::setw(colWidthInfo) << "Action"
-    << std::setw(colWidthKey) << "Key" << std::endl
-    << std::string(colWidthInfo + colWidthKey, '-') << std::endl;
-
-  for (size_t i = 0; i < myKeysInfo.size(); i++) {
-    std::cout << std::setw(colWidthInfo) << myKeysInfo[i]
-      << std::setw(colWidthKey) << moveKeyToString(myKeys[i]) << std::endl;
-  }
-  std::cout << std::endl;
-}
-
-// fix movement values
-void MoveKeyHandler::forward() { myTransRatio = 100; }
-void MoveKeyHandler::backward() { myTransRatio = -100; }
-void MoveKeyHandler::turnLeft() { myRotRatio = 100; }
-void MoveKeyHandler::turnRight() { myRotRatio = -100; }
-
 // alternate between wander and normal mode
-void MoveKeyHandler::wander()
+void MoveHandler::wander()
 {
   if (!myClient->dataExists("wander")) return;
 
   myIsWandering = !myIsWandering;
-
   if (myIsWandering) {
     myClient->requestOnce("wander");
     std::cout << "\t" << myClient->getRobotName() 
@@ -105,7 +56,7 @@ void MoveKeyHandler::wander()
 }
 
 // stop the robot
-void MoveKeyHandler::stop()
+void MoveHandler::stop()
 {
   if (!myClient->dataExists("stop")) return;
   myClient->requestOnce("stop");
@@ -114,7 +65,7 @@ void MoveKeyHandler::stop()
 }
 
 // alternate between unsafe and safe drive
-void MoveKeyHandler::unsafe()
+void MoveHandler::unsafe()
 {
   if (!myClient->dataExists("setSafeDrive") || myIsWandering) return;
 
@@ -135,42 +86,174 @@ void MoveKeyHandler::unsafe()
 }
 
 // control next robot
-void MoveKeyHandler::nextRobot()
+void MoveHandler::nextRobot()
 {
   myClientIndex++;
   if (myClientIndex >= myClients.size()) myClientIndex = 0;
   myClient = myClients[myClientIndex];
-  echo("keyboard controls", myClient->getRobotName());
 }
 
 // control previous robot
-void MoveKeyHandler::prevRobot()
+void MoveHandler::prevRobot()
 {
   if (myClientIndex == 0) myClientIndex = myClients.size() - 1;
   else myClientIndex--;
   myClient = myClients[myClientIndex];
-  echo("keyboard controls", myClient->getRobotName());
 }
+
+// all robots wander
+void MoveHandler::wanderAll()
+{
+  for (size_t i = 0; i < myClients.size(); i++)
+    myClients[i]->requestOnce("wander");
+}
+
+// all robots stop
+void MoveHandler::stopAll()
+{
+  for (size_t i = 0; i < myClients.size(); i++)
+    myClients[i]->requestOnce("stop");
+}
+
+
+////////////////////////////////////////////
+//   MoveKeyHandler
+////////////////////////////////////////////
+
+// fill the command keys
+const int MoveKeyHandler::keys[] = {
+  ArKeyHandler::UP,
+  ArKeyHandler::DOWN,
+  ArKeyHandler::LEFT,
+  ArKeyHandler::RIGHT,
+  'w',
+  's',
+  'x',
+  ArKeyHandler::PAGEUP,
+  ArKeyHandler::PAGEDOWN,
+  'q',
+  'a',
+};
+
+// Attach keypress handlers
+MoveKeyHandler::MoveKeyHandler(
+    std::vector<ArClientBase *> &clients,
+    ArKeyHandler *keyHandler)
+  : MoveHandler(clients), 
+    myKeyHandler(keyHandler),
+    myForwardFtr(this, &MoveKeyHandler::forward),
+    myBackwardFtr(this, &MoveKeyHandler::backward),
+    myTurnLeftFtr(this, &MoveKeyHandler::turnLeft),
+    myTurnRightFtr(this, &MoveKeyHandler::turnRight),
+    myWanderFtr(this, &MoveKeyHandler::wander),
+    myStopFtr(this, &MoveKeyHandler::stop),
+    myUnsafeFtr(this, &MoveKeyHandler::unsafe),
+    myNextRobotFtr(this, &MoveKeyHandler::nextRobot),
+    myPrevRobotFtr(this, &MoveKeyHandler::prevRobot),
+    myWanderAllFtr(this, &MoveKeyHandler::wanderAll),
+    myStopAllFtr(this, &MoveKeyHandler::stopAll)
+{
+  myKeyHandler->addKeyHandler(keys[0], &myForwardFtr);
+  myKeyHandler->addKeyHandler(keys[1], &myBackwardFtr);
+  myKeyHandler->addKeyHandler(keys[2], &myTurnLeftFtr);
+  myKeyHandler->addKeyHandler(keys[3], &myTurnRightFtr);
+  myKeyHandler->addKeyHandler(keys[4], &myWanderFtr);
+  myKeyHandler->addKeyHandler(keys[5], &myStopFtr);
+  myKeyHandler->addKeyHandler(keys[6], &myUnsafeFtr);
+  myKeyHandler->addKeyHandler(keys[7], &myNextRobotFtr);
+  myKeyHandler->addKeyHandler(keys[8], &myPrevRobotFtr);
+  myKeyHandler->addKeyHandler(keys[9], &myWanderAllFtr);
+  myKeyHandler->addKeyHandler(keys[10], &myStopAllFtr);
+
+  displayKeys();
+}
+
+// For keyboard, the key press checking is done
+// by the keyhandler so only send the movement
+// values
+void MoveKeyHandler::update()
+{
+  ratioDrive();
+}
+
+// print commands and keys
+void MoveKeyHandler::displayKeys()
+{
+  printTitle("Keyboard movement controls");
+
+  const int colWidthAction = 20;
+  const int colWidthKey = 20;
+
+  std::cout << std::setw(colWidthAction) << "Action"
+    << std::setw(colWidthKey) << "Key" << std::endl
+    << std::string(colWidthAction + colWidthKey, '-') << std::endl;
+
+  for (int i = 0; i < sizeof(keys)/sizeof(keys[0]); i++) {
+    std::cout << std::setw(colWidthAction) << actions[i]
+      << std::setw(colWidthKey) << moveKeyToString(keys[i]) << std::endl;
+  }
+
+  std::cout << std::endl;
+}
+
+// just display current robot name
+void MoveKeyHandler::nextRobot()
+{
+  MoveHandler::nextRobot();
+  echo("Keyboard controls", myClient->getRobotName());
+}
+
+// just display current robot name
+void MoveKeyHandler::prevRobot()
+{
+  MoveHandler::nextRobot();
+  echo("Keyboard controls", myClient->getRobotName());
+}
+
+// fix movement values
+void MoveKeyHandler::forward() { myTransRatio = 100; }
+void MoveKeyHandler::backward() { myTransRatio = -100; }
+void MoveKeyHandler::turnLeft() { myRotRatio = 100; }
+void MoveKeyHandler::turnRight() { myRotRatio = -100; }
 
 
 ////////////////////////////////////////////
 //   MoveJoyHandler
 ////////////////////////////////////////////
 
+// fill the command keys
+const char *MoveJoyHandler::keys[] = {
+  "Joystick UP",
+  "Joystick DOWN",
+  "Joystick LEFT",
+  "Joystick RIGHT",
+  "Button 6",
+  "Button 7",
+  "Button 3",
+  "Button 4",
+  "Button 5",
+  "Button 11",
+  "Button 10",
+};
+
 MoveJoyHandler::MoveJoyHandler(
-    std::vector<ArClientBase *> &clients,
-    std::vector<int> &keys, std::vector<std::string> &keysInfo,
-    ArJoyHandler *joyHandler)
-  : MoveHandler(clients, keys, keysInfo), 
-    myJoyHandler(joyHandler)
+    std::vector<ArClientBase *> &clients, ArJoyHandler *joyHandler)
+  : MoveHandler(clients), myJoyHandler(joyHandler)
 {
   displayKeys();
 }
 
+// check for key press and perform appropriate command
 void MoveJoyHandler::update()
 {
-  if (joy->getButton(1)) {
-  }
+  if (myJoyHandler->getButton(1)) ratioDrive();
+  if (myJoyHandler->getButton(6)) wander();
+  if (myJoyHandler->getButton(7)) stop();
+  if (myJoyHandler->getButton(3)) unsafe();
+  if (myJoyHandler->getButton(4)) prevRobot();
+  if (myJoyHandler->getButton(5)) nextRobot();
+  if (myJoyHandler->getButton(11)) wanderAll();
+  if (myJoyHandler->getButton(10)) stopAll();
 }
 
 // print keys and description on command line
@@ -178,235 +261,54 @@ void MoveJoyHandler::displayKeys()
 {
   printTitle("Joystick movement controls");
 
-  std::vector<std::string> myButtons;
-  myButtons.push_back("JOYSTICK UP");
-  myButtons.push_back("JOYSTICK DOWN");
-  myButtons.push_back("JOYSTICK LEFT");
-  myButtons.push_back("JOYSTICK RIGHT");
-  myButtons.push_back("HOLD TRIGGER");
-  std::vector<std::string> myButtonsInfo;
-  myButtonsInfo.push_back("move forward");
-  myButtonsInfo.push_back("move backward");
-  myButtonsInfo.push_back("rotate left");
-  myButtonsInfo.push_back("rotate right");
-  myButtonsInfo.push_back("allow driving");
-  int colWidthInfo = 25;
-  int colWidthKey = 20;
+  const int colWidthAction = 20;
+  const int colWidthKey = 20;
 
-  std::cout << std::setw(colWidthInfo) << "Action"
-    << std::setw(colWidthKey) << "Button" << std::endl
-    << std::string(colWidthInfo + colWidthKey, '-') << std::endl;
+  std::cout << std::setw(colWidthAction) << "Action"
+    << std::setw(colWidthKey) << "Key" << std::endl
+    << std::string(colWidthAction + colWidthKey, '-') << std::endl;
 
-  for (size_t i = 0; i < myButtonsInfo.size(); i++) {
-    std::cout << std::setw(colWidthInfo) << myButtonsInfo[i]
-      << std::setw(colWidthKey) << myButtons[i] << std::endl;
+  for (int i = 0; i < sizeof(keys)/sizeof(keys[0]); i++) {
+    std::cout << std::setw(colWidthAction) << actions[i]
+      << std::setw(colWidthKey) << keys[i] << std::endl;
   }
+
   std::cout << std::endl;
 }
 
-void MoveJoyHandler::forward()
+// manually control the robot by getting velocities from
+// joystick position
+void MoveJoyHandler::ratioDrive()
 {
+  int x, y;
+
+  myJoyHandler->getAdjusted(&x, &y);
+  myRotRatio = -x;
+  myTransRatio = y;
+
+  MoveHandler::ratioDrive();
 }
 
-void MoveJoyHandler::backward()
-{
-}
-
-void MoveJoyHandler::turnLeft()
-{
-}
-
-void MoveJoyHandler::turnRight()
-{
-}
-
-void MoveJoyHandler::wander()
-{
-}
-
-void MoveJoyHandler::stop()
-{
-}
-
-void MoveJoyHandler::unsafe()
-{
-}
-
+// just display current robot name
 void MoveJoyHandler::nextRobot()
 {
+  MoveHandler::nextRobot();
+  echo("Joystick controls", myClient->getRobotName());
 }
 
+// just display current robot name
 void MoveJoyHandler::prevRobot()
 {
+  MoveHandler::nextRobot();
+  echo("Joystick controls", myClient->getRobotName());
 }
+
 
 
 
 ////////////////////////////////////////////
 //   Useful Functions
 ////////////////////////////////////////////
-
-
-// Check for keys pressed on joystick and orientation of the stick
-// itself when in manual mode
-void checkJoy(ArJoyHandler *joy, const std::vector<ArClientBase *> &clients)
-{
-  static unsigned int currClientIndex = 0;
-  static ArClientBase *client = clients[currClientIndex];
-  static bool manMode = false;
-  static double myTransRatio = 0, myRotRatio = 0;
-  static int x = 0, y = 0;
-
-  // control previous robot
-  if (joy->getButton(4)) {
-    if (currClientIndex == 0) 
-      currClientIndex = clients.size() - 1;
-    else
-      currClientIndex--;
-    client = clients[currClientIndex];
-    echo("joystick controls", client->getRobotName());
-  }
-  // control next robot
-  else if (joy->getButton(5)) {
-    currClientIndex++;
-    if (currClientIndex >= clients.size()) 
-      currClientIndex = 0;
-    client = clients[currClientIndex];
-    echo("joystick controls", client->getRobotName());
-  }
-  // stop the robot
-  else if (joy->getButton(2)) {
-    if (!client->dataExists("stop")) return;
-    else std::cout << "\t" << client->getRobotName() 
-      << " stop mode" << std::endl;
-
-    manMode = false;
-    client->requestOnce("stop");
-    myTransRatio = 0;
-    myRotRatio = 0;
-  }
-  // robot is automatic
-  else if (joy->getButton(3)) {
-    if (!client->dataExists("wander")) return;
-    else std::cout << "\t" << client->getRobotName() 
-      << " auto mode" << std::endl;
-    manMode = false;
-    client->requestOnce("wander");
-    myTransRatio = 0;
-    myRotRatio = 0;
-  }
-  // auto all
-  else if (joy->getButton(6)) {
-    echo("ALL ROBOTS IN AUTO MODE");
-    for (unsigned int i = 0; i < clients.size(); i++)
-      clients[i]->requestOnce("wander");
-  }
-  // stop all
-  else if (joy->getButton(7)) {
-    echo("ALL ROBOTS IN STOP MODE");
-    for (unsigned int i = 0; i < clients.size(); i++)
-      clients[i]->requestOnce("stop");
-  }
-  // safe driving
-  else if (joy->getButton(8)) {
-    if (!client->dataExists("setSafeDrive")) return;
-    else std::cout << "\t" << client->getRobotName() 
-      << " safe drive" << std::endl;
-
-    ArNetPacket packet;
-    packet.byteToBuf(1);
-    client->requestOnce("setSafeDrive", &packet);
-  }
-  // unsafe driving
-  else if (joy->getButton(9)) {
-    if (!client->dataExists("setSafeDrive")) return;
-    else std::cout << "\t" << client->getRobotName() 
-      << " unsafe drive" << std::endl;
-
-    ArNetPacket packet;
-    packet.byteToBuf(0);
-    client->requestOnce("setSafeDrive", &packet);
-  }
-
-  // manually control the robot
-  if (joy->getButton(1)) {
-    if (!client->dataExists("ratioDrive")) return;
-    else if (!manMode) {
-      std::cout << "\t" << client->getRobotName() 
-	<< " manual mode" << std::endl;
-    }
-
-    // disable other modes and turn on manual mode
-    if (!manMode) {
-      client->requestOnce("stop");
-      myTransRatio = 0;
-      myRotRatio = 0;
-      manMode = true;
-    }
-
-    joy->getAdjusted(&x, &y);
-    myRotRatio = -x;
-    myTransRatio = y;
-    ArNetPacket packet;
-    packet.doubleToBuf(myTransRatio);
-    packet.doubleToBuf(myRotRatio);
-    packet.doubleToBuf(75);
-
-    client->requestOnce("ratioDrive", &packet);
-    myTransRatio = 0;
-    myRotRatio = 0;
-  }
-  else {
-    if (!client->dataExists("stop")) return;
-    else if (manMode) {
-      std::cout << "\t" << client->getRobotName() 
-	<< " stop mode" << std::endl;
-
-      manMode = false;
-      client->requestOnce("stop");
-      myTransRatio = 0;
-      myRotRatio = 0;
-    }
-  }
-}
-
-// Display joystick controls
-void joyInfoDisplay()
-{
-  std::string moveKeysInfo[] = {
-    "move up", "move down", "move left", "move right", 
-    "auto mode", "drive mode", "stop mode", "select previous robot",
-    "select next robot", "auto all robots", "stop all robots",
-    "safe drive", "unsafe drive"
-  };
-
-  std::string moveKeys[] = {
-    "JOYSTICK UP", "JOYSTICK DOWN", "JOYSTICK LEFT", "JOYSTICK RIGHT", 
-    "BUTTON 3", "TRIGGER", "BUTTON 2", "BUTTON 4", "BUTTON 5",
-    "BUTTON 6", "BUTTON 7", "BUTTON 8", "BUTTON 9"
-  };
-
-  const int leftMargin = 5;
-  const int keyColWidth = 20;
-  const int descColWidth = 30;
-
-  std::cout << std::endl << "Joystick controls" << std::endl;
-  std::cout << std::setw(leftMargin) << "|"
-    << std::setw(keyColWidth) << "Key" 
-    << std::setw(descColWidth) << "Description" 
-    << std::endl
-    << std::string(60, '-')
-    << std::endl;
-
-  for (int i = 0; i < sizeof(moveKeys)/sizeof(moveKeys[0]); i++) {
-  std::cout << std::setw(leftMargin) << "|"
-    << std::setw(keyColWidth) << moveKeys[i]
-    << std::setw(descColWidth) << moveKeysInfo[i]
-    << std::endl;
-  }
-
-  std::cout << std::endl;
-}
 
 // return a string name of the given key
 std::string moveKeyToString(int c)
@@ -436,29 +338,4 @@ std::string moveKeyToString(int c)
       break;
   }
   return keyName;
-}
-
-// fill with default key values
-void defaultMoveKeys(
-    std::vector<int> &moveKeys, 
-    std::vector<std::string> &moveKeysInfo)
-{
-  moveKeys.push_back(ArKeyHandler::UP);
-  moveKeys.push_back(ArKeyHandler::DOWN);
-  moveKeys.push_back(ArKeyHandler::LEFT);
-  moveKeys.push_back(ArKeyHandler::RIGHT);
-  moveKeys.push_back('w');
-  moveKeys.push_back('s');
-  moveKeys.push_back('x');
-  moveKeys.push_back(ArKeyHandler::PAGEDOWN);
-  moveKeys.push_back(ArKeyHandler::PAGEUP);
-  moveKeysInfo.push_back("move forward");
-  moveKeysInfo.push_back("move backward");
-  moveKeysInfo.push_back("rotate left");
-  moveKeysInfo.push_back("rotate right");
-  moveKeysInfo.push_back("wander on/off");
-  moveKeysInfo.push_back("unsafe on/off");
-  moveKeysInfo.push_back("stop mode");
-  moveKeysInfo.push_back("control next robot");
-  moveKeysInfo.push_back("control previous robot");
 }
