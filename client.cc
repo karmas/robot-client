@@ -97,6 +97,9 @@ int main(int argc, char **argv)
     joyInfoDisplay();
   }
 
+  MoveHandler *moveJoyHandler = 
+    new MoveJoyHandler(clients, moveKeys, moveKeysInfo, &joyHandler);
+
   // start all the clients
   startClients(clients);
   // create the sensor data handlers for the clients

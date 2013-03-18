@@ -67,6 +67,29 @@ private:
   ArFunctorC<MoveKeyHandler> myPrevRobotFtr;
 };
 
+// Move using Joystick
+class MoveJoyHandler : public MoveHandler {
+public:
+  MoveJoyHandler(std::vector<ArClientBase *> &clients,
+      std::vector<int> &keys, std::vector<std::string> &keyInfo,
+      ArJoyHandler *joyHandler);
+  void update();
+  void displayKeys();
+
+private:
+  void forward();
+  void backward();
+  void turnLeft();
+  void turnRight();
+  void wander();
+  void stop();
+  void unsafe();
+  void nextRobot();
+  void prevRobot();
+
+  ArJoyHandler *myJoyHandler;
+};
+
 
 
 // useful movement related function declarations

@@ -13,7 +13,9 @@ MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients,
 {
 }
 
-
+////////////////////////////////////////////
+//   MoveKeyHandler
+////////////////////////////////////////////
 
 // Attach keypress handlers
 MoveKeyHandler::MoveKeyHandler(
@@ -150,6 +152,99 @@ void MoveKeyHandler::prevRobot()
   echo("keyboard controls", myClient->getRobotName());
 }
 
+
+////////////////////////////////////////////
+//   MoveJoyHandler
+////////////////////////////////////////////
+
+MoveJoyHandler::MoveJoyHandler(
+    std::vector<ArClientBase *> &clients,
+    std::vector<int> &keys, std::vector<std::string> &keysInfo,
+    ArJoyHandler *joyHandler)
+  : MoveHandler(clients, keys, keysInfo), 
+    myJoyHandler(joyHandler)
+{
+  displayKeys();
+}
+
+void MoveJoyHandler::update()
+{
+  if (joy->getButton(1)) {
+  }
+}
+
+// print keys and description on command line
+void MoveJoyHandler::displayKeys()
+{
+  printTitle("Joystick movement controls");
+
+  std::vector<std::string> myButtons;
+  myButtons.push_back("JOYSTICK UP");
+  myButtons.push_back("JOYSTICK DOWN");
+  myButtons.push_back("JOYSTICK LEFT");
+  myButtons.push_back("JOYSTICK RIGHT");
+  myButtons.push_back("HOLD TRIGGER");
+  std::vector<std::string> myButtonsInfo;
+  myButtonsInfo.push_back("move forward");
+  myButtonsInfo.push_back("move backward");
+  myButtonsInfo.push_back("rotate left");
+  myButtonsInfo.push_back("rotate right");
+  myButtonsInfo.push_back("allow driving");
+  int colWidthInfo = 25;
+  int colWidthKey = 20;
+
+  std::cout << std::setw(colWidthInfo) << "Action"
+    << std::setw(colWidthKey) << "Button" << std::endl
+    << std::string(colWidthInfo + colWidthKey, '-') << std::endl;
+
+  for (size_t i = 0; i < myButtonsInfo.size(); i++) {
+    std::cout << std::setw(colWidthInfo) << myButtonsInfo[i]
+      << std::setw(colWidthKey) << myButtons[i] << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+void MoveJoyHandler::forward()
+{
+}
+
+void MoveJoyHandler::backward()
+{
+}
+
+void MoveJoyHandler::turnLeft()
+{
+}
+
+void MoveJoyHandler::turnRight()
+{
+}
+
+void MoveJoyHandler::wander()
+{
+}
+
+void MoveJoyHandler::stop()
+{
+}
+
+void MoveJoyHandler::unsafe()
+{
+}
+
+void MoveJoyHandler::nextRobot()
+{
+}
+
+void MoveJoyHandler::prevRobot()
+{
+}
+
+
+
+////////////////////////////////////////////
+//   Useful Functions
+////////////////////////////////////////////
 
 
 // Check for keys pressed on joystick and orientation of the stick
