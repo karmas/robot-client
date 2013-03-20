@@ -12,12 +12,14 @@ struct TransformInfo {
 
 // information about each host which is a server running on a robot
 struct HostInfo {
-  HostInfo(const char *ipa, int p, int loc, int lac, 
-      TransformInfo ti, int rf)
-    : ip(ipa), port(p), locationColor(loc), laserColor(lac),
+  HostInfo(const char *ipa, int p, const std::string &s, 
+      int loc, int lac, TransformInfo ti, int rf)
+    : ip(ipa), port(p), sensor(s),
+      locationColor(loc), laserColor(lac),
       transformInfo(ti), requestFreq(rf) { }
   const char *ip;
   int port;
+  std::string sensor;
   int locationColor;
   int laserColor;
   TransformInfo transformInfo;
@@ -31,6 +33,7 @@ public:
     : myArgc(c), myArgv(v), myParser(parser) { }
   void readHostsFile(std::vector<HostInfo> &hostsInfo);
   static void printInfoFields();
+  static void printSensors();
 
   static const char *hostsArg;
   static const char *hostsFileHeader;
@@ -40,6 +43,7 @@ public:
   static const char *myFieldSeparator;
   static const char *mySubFieldSeparator;
   static const int myDefaultPort = 7272;
+  static const char *sensors[];
 
 private:
   int myArgc;
@@ -53,6 +57,7 @@ private:
       			   std::vector<size_t> &fieldTypes);
   size_t matchFieldIndex(const char *fieldName);
   void getIntSubFields(const std::string &s, std::vector<int> &subFields);
+  void checkSensorName(const std::string &s);
 };
 
 

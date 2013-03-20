@@ -14,10 +14,11 @@
 const char *ConfigFileReader::hostsArg = "-hosts";
 // this header is required as the first valid line
 const char *ConfigFileReader::hostsFileHeader = "servers 1.0";
-// this are the valid fields
+// these are the valid fields
 const char *ConfigFileReader::infoFields[] = {
   "ip",
   "port",
+  "sensor",
   "locationColor",
   "laserColor",
   "transformInfo",
@@ -30,6 +31,11 @@ const size_t ConfigFileReader::infoFieldTypes =
 const char *ConfigFileReader::myFieldSeparator = " ";
 // separates sub fields in the file
 const char *ConfigFileReader::mySubFieldSeparator = ",";
+// valid sensor names
+const char *ConfigFileReader::sensors[] = {
+  "laser",
+  "stereoCam",
+};
 
 
 // check if argument option is given in command line
@@ -147,7 +153,7 @@ void ConfigFileReader::getIntSubFields(const std::string &s,
 void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
 {
   // store current host info
-  HostInfo currHostInfo(NULL, 0, 0, 0, TransformInfo(0,0,0), 0);
+  HostInfo currHostInfo(NULL, 0, "", 0, 0, TransformInfo(0,0,0), 0);
 
   std::string line;
   std::string field;
@@ -164,6 +170,7 @@ void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
     // refresh host info to default
     currHostInfo = HostInfo(NULL,	// ip address
 			    myDefaultPort,// port number
+			    "laser",// sensor
 			    rgba(200,0,0),// location color
 			    rgba(0,200,0),// laser data color
 			    TransformInfo(0,0,0),
@@ -193,22 +200,26 @@ void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
 	case 1:		// port number
 	  currHostInfo.port = atoi(field.c_str());
 	  break;
-	case 2:		// location color
+	case 2:		// sensor
+	  checkSensorName(field);
+	  currHostInfo.sensor = field;
+	  break;
+	case 3:		// location color
 	  getIntSubFields(field, subFields);
 	  currHostInfo.locationColor = 
 	    rgba(subFields[0], subFields[1], subFields[2]);
 	  break;
-	case 3:		// laser data color
+	case 4:		// laser data color
 	  getIntSubFields(field, subFields);
 	  currHostInfo.laserColor = 
 	    rgba(subFields[0], subFields[1], subFields[2]);
 	  break;
-	case 4:		// transformation info
+	case 5:		// transformation info
 	  getIntSubFields(field, subFields);
 	  currHostInfo.transformInfo = 
 	    TransformInfo(subFields[0], subFields[1], subFields[2]);
 	  break;
-	case 5:		// request frequency in milliseconds
+	case 6:		// request frequency in milliseconds
 	  currHostInfo.requestFreq = atoi(field.c_str());
 	  break;
 	default:
@@ -221,6 +232,7 @@ void ConfigFileReader::readHostsFile(std::vector<HostInfo> &hostsInfo)
 #ifdef debug
     echo("ip address", currHostInfo.ip);
     echo("port number", currHostInfo.port);
+    echo("sensor", currHostInfo.sensor);
     echo("location color", currHostInfo.locationColor);
     echo("laser color", currHostInfo.laserColor);
     echo("x offset", currHostInfo.transformInfo.xOffset);
@@ -245,7 +257,29 @@ void ConfigFileReader::printInfoFields()
   std::cout << std::endl;
   echo("VALID FIELDS ARE:");
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < sizeof(infoFields)/sizeof(infoFields[0]); i++) {
     echo(infoFields[i]);
   }
+}
+
+// display the valid values for sensor field
+void ConfigFileReader::printSensors()
+{
+  std::cout << std::endl;
+  echo("VALID SENSORS ARE:");
+
+  for (int i = 0; i < sizeof(sensors)/sizeof(sensors[0]); i++) {
+    echo(sensors[i]);
+  }
+}
+
+// check the supplied string name of sensor for validity
+void ConfigFileReader::checkSensorName(const std::string &s)
+{
+  for (int i = 0; i < sizeof(sensors)/sizeof(sensors[0]); i++)
+    if (s == sensors[i]) return;
+
+  echo("invalid field name", s);
+  printSensors();
+  errorExit("");
 }

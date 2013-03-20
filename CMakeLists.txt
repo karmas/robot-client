@@ -8,6 +8,8 @@ set(SRC
     SensorDataViewer.cc client.cc)
 # Program name
 set(PROG client)
+# Compilation flags
+set(CMAKE_CXX_FLAGS -g)
 
 # use cmake to find PCL library
 find_package(PCL 1.3 REQUIRED 

@@ -327,12 +327,14 @@ void createSensorDataHandlers(
   SensorDataHandler *sensorDataHandler = NULL;
 
   for (unsigned int i = 0; i < clients.size(); i++) {
-    if (false)
+    if (hostsInfo[i].sensor == "laser") {
       sensorDataHandler = 
 	new SensorDataLaserHandler(clients[i], hostsInfo[i]);
-    else
+    }
+    else if (hostsInfo[i].sensor == "stereoCam") {
       sensorDataHandler = 
 	new SensorDataStereoCamHandler(clients[i], hostsInfo[i]);
+    }
     sensorDataHandlers.push_back(sensorDataHandler);
   }
 }
