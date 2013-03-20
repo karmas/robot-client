@@ -21,15 +21,17 @@ const char *MoveHandler::actions[] = {
 
 MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients)
   : myClients(clients), myClientIndex(0), myClient(myClients[0]),
-    myTransRatio(0), myRotRatio(0), mySpeedLimit(80),
-    myIsWandering(false), myIsSafe(true)
+    myTransRatio(0), myRotRatio(0), mySpeedLimit(80)
 {
+  // set default modes for clients
+  myModes.push_back(Mode(false, true));
 }
 
 // send a packet containing velocity values
 void MoveHandler::ratioDrive() 
 { 
-  if (!myClient->dataExists("ratioDrive") || myIsWandering) return;
+  if (!myClient->dataExists("ratioDrive") ||
+      myModes[myClientIndex].myWander) return;
 
   ArNetPacket packet;
   packet.doubleToBuf(myTransRatio);
@@ -46,8 +48,9 @@ void MoveHandler::wander()
 {
   if (!myClient->dataExists("wander")) return;
 
-  myIsWandering = !myIsWandering;
-  if (myIsWandering) {
+  myModes[myClientIndex].myWander = !myModes[myClientIndex].myWander;
+
+  if (myModes[myClientIndex].myWander) {
     myClient->requestOnce("wander");
     std::cout << "\t" << myClient->getRobotName() 
       << " wander mode" << std::endl;
@@ -60,19 +63,20 @@ void MoveHandler::stop()
 {
   if (!myClient->dataExists("stop")) return;
   myClient->requestOnce("stop");
+  myModes[myClientIndex].myWander = false;
   std::cout << "\t" << myClient->getRobotName() 
     << " stop mode" << std::endl;
 }
 
 // alternate between unsafe and safe drive
-void MoveHandler::unsafe()
+void MoveHandler::safeDrive()
 {
-  if (!myClient->dataExists("setSafeDrive") || myIsWandering) return;
+  if (!myClient->dataExists("setSafeDrive")) return;
 
-  myIsSafe = !myIsSafe;
+  myModes[myClientIndex].mySafe = !myModes[myClientIndex].mySafe;
 
   ArNetPacket packet;
-  if (myIsSafe) {
+  if (myModes[myClientIndex].mySafe) {
     packet.byteToBuf(1);
     std::cout << "\t" << myClient->getRobotName() 
       << " safe drive" << std::endl;
@@ -104,15 +108,19 @@ void MoveHandler::prevRobot()
 // all robots wander
 void MoveHandler::wanderAll()
 {
-  for (size_t i = 0; i < myClients.size(); i++)
+  for (size_t i = 0; i < myClients.size(); i++) {
     myClients[i]->requestOnce("wander");
+    myModes[i].myWander = true;
+  }
 }
 
 // all robots stop
 void MoveHandler::stopAll()
 {
-  for (size_t i = 0; i < myClients.size(); i++)
+  for (size_t i = 0; i < myClients.size(); i++) {
     myClients[i]->requestOnce("stop");
+    myModes[i].myWander = false;
+  }
 }
 
 
@@ -147,7 +155,7 @@ MoveKeyHandler::MoveKeyHandler(
     myTurnRightFtr(this, &MoveKeyHandler::turnRight),
     myWanderFtr(this, &MoveKeyHandler::wander),
     myStopFtr(this, &MoveKeyHandler::stop),
-    myUnsafeFtr(this, &MoveKeyHandler::unsafe),
+    myUnsafeFtr(this, &MoveKeyHandler::safeDrive),
     myNextRobotFtr(this, &MoveKeyHandler::nextRobot),
     myPrevRobotFtr(this, &MoveKeyHandler::prevRobot),
     myWanderAllFtr(this, &MoveKeyHandler::wanderAll),
@@ -249,7 +257,7 @@ void MoveJoyHandler::update()
   if (myJoyHandler->getButton(1)) ratioDrive();
   if (myJoyHandler->getButton(6)) wander();
   if (myJoyHandler->getButton(7)) stop();
-  if (myJoyHandler->getButton(3)) unsafe();
+  if (myJoyHandler->getButton(3)) safeDrive();
   if (myJoyHandler->getButton(4)) prevRobot();
   if (myJoyHandler->getButton(5)) nextRobot();
   if (myJoyHandler->getButton(11)) wanderAll();

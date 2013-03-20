@@ -7,6 +7,14 @@
 // moving client robots
 class MoveHandler {
 public:
+  // Holds robot servers state information
+  struct Mode {
+    Mode(bool w, bool s)
+      : myWander(w), mySafe(s) { }
+    bool myWander;
+    bool mySafe;
+  };
+
   virtual void update() = 0;
   virtual void displayKeys() = 0;
 
@@ -15,7 +23,7 @@ protected:
   virtual void ratioDrive();
   virtual void wander();
   virtual void stop();
-  virtual void unsafe();
+  virtual void safeDrive();
   virtual void nextRobot();
   virtual void prevRobot();
   virtual void wanderAll();
@@ -29,8 +37,7 @@ protected:
   double myTransRatio;
   double myRotRatio;
   double mySpeedLimit;
-  bool myIsWandering;
-  bool myIsSafe;
+  std::vector<Mode> myModes;
 };
 
 // Move using keyboard
