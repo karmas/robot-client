@@ -290,9 +290,9 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
   // create a point using data section of packet
   for (int i = 0; i < nPoints; i++) {
     // get co-ordinate information
+    point.x = static_cast<float>(packet->bufToByte2());
     point.y = static_cast<float>(packet->bufToByte2());
     point.z = static_cast<float>(packet->bufToByte2());
-    point.x = static_cast<float>(packet->bufToByte2());
     // get color information
     point.b = packet->bufToByte();
     point.g = packet->bufToByte();
