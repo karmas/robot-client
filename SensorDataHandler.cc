@@ -282,26 +282,23 @@ void SensorDataStereoCamHandler::request()
 void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
 {
   // Retrieve header information
-  int height = packet->bufToByte4();
-  int width = packet->bufToByte4();
+  int nPoints = packet->bufToByte4();
   int channels = packet->bufToByte4();
 
   MyPoint point;
 
   // create a point using data section of packet
-  for (int i = 0; i < height; i++) {
-    for (int j = 0; j < width; j++) {
-      // get co-ordinate information
-      point.y = static_cast<float>(packet->bufToDouble()) * 1000;
-      point.z = static_cast<float>(packet->bufToDouble()) * 1000;
-      point.x = static_cast<float>(packet->bufToDouble()) * 1000;
-      // get color information
-      point.r = packet->bufToByte();
-      point.g = packet->bufToByte();
-      point.b = packet->bufToByte();
-      // add point to the cloud
-      myDisplayCloud->push_back(point);
-    }
+  for (int i = 0; i < nPoints; i++) {
+    // get co-ordinate information
+    point.y = static_cast<float>(packet->bufToByte2());
+    point.z = static_cast<float>(packet->bufToByte2());
+    point.x = static_cast<float>(packet->bufToByte2());
+    // get color information
+    point.b = packet->bufToByte();
+    point.g = packet->bufToByte();
+    point.r = packet->bufToByte();
+    // add point to the cloud
+    myDisplayCloud->push_back(point);
   }
 }
 
