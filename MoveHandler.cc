@@ -21,7 +21,7 @@ const char *MoveHandler::actions[] = {
 
 MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients)
   : myClients(clients), myClientIndex(0), myClient(myClients[0]),
-    myTransRatio(0), myRotRatio(0), mySpeedLimit(80)
+    myTransRatio(0), myRotRatio(0), mySpeedLimit(70)
 {
   // set default modes for clients
   myModes.push_back(Mode(false, true));
@@ -64,8 +64,6 @@ void MoveHandler::stop()
   if (!myClient->dataExists("stop")) return;
   myClient->requestOnce("stop");
   myModes[myClientIndex].myWander = false;
-  std::cout << "\t" << myClient->getRobotName() 
-    << " stop mode" << std::endl;
 }
 
 // alternate between unsafe and safe drive
@@ -172,8 +170,6 @@ MoveKeyHandler::MoveKeyHandler(
   myKeyHandler->addKeyHandler(keys[8], &myPrevRobotFtr);
   myKeyHandler->addKeyHandler(keys[9], &myWanderAllFtr);
   myKeyHandler->addKeyHandler(keys[10], &myStopAllFtr);
-
-  displayKeys();
 }
 
 // For keyboard, the key press checking is done
@@ -248,20 +244,26 @@ MoveJoyHandler::MoveJoyHandler(
     std::vector<ArClientBase *> &clients, ArJoyHandler *joyHandler)
   : MoveHandler(clients), myJoyHandler(joyHandler)
 {
-  displayKeys();
 }
 
 // check for key press and perform appropriate command
 void MoveJoyHandler::update()
 {
   if (myJoyHandler->getButton(1)) ratioDrive();
-  if (myJoyHandler->getButton(6)) wander();
-  if (myJoyHandler->getButton(7)) stop();
-  if (myJoyHandler->getButton(3)) safeDrive();
-  if (myJoyHandler->getButton(4)) prevRobot();
-  if (myJoyHandler->getButton(5)) nextRobot();
-  if (myJoyHandler->getButton(11)) wanderAll();
-  if (myJoyHandler->getButton(10)) stopAll();
+  else {
+    if (!myModes[myClientIndex].myWander) {
+      myTransRatio = 0;
+      myRotRatio = 0;
+      MoveHandler::ratioDrive();
+    }
+    if (myJoyHandler->getButton(6)) wander();
+    else if (myJoyHandler->getButton(7)) stop();
+    else if (myJoyHandler->getButton(3)) safeDrive();
+    else if (myJoyHandler->getButton(4)) prevRobot();
+    else if (myJoyHandler->getButton(5)) nextRobot();
+    else if (myJoyHandler->getButton(11)) wanderAll();
+    else if (myJoyHandler->getButton(10)) stopAll();
+  }
 }
 
 // print keys and description on command line
@@ -346,4 +348,24 @@ std::string moveKeyToString(int c)
       break;
   }
   return keyName;
+}
+
+// Warn about keyboard and joystick conflicts
+void keyVsJoy(MoveHandler *&key, MoveHandler *&joy, int nClients)
+{
+  // if there is only one client, use only one controller
+  // default is to use joystick
+  if (nClients == 1) {
+    if (joy) {
+      joy->displayKeys();
+      delete key;
+      key = NULL;
+    }
+    else key->displayKeys();
+  }
+  else {
+    if (joy) joy->displayKeys();
+    key->displayKeys();
+    printTitle("DO NOT CONTROL SAME ROBOT WITH KEYBOARD AND JOYSTICK");
+  }
 }

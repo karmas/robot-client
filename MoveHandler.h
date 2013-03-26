@@ -96,6 +96,7 @@ private:
 void defaultMoveKeys(std::vector<int> &moveKeys, 
     std::vector<std::string> &moveKeysInfo);
 std::string moveKeyToString(int c);
+void keyVsJoy(MoveHandler *&key, MoveHandler *&joy, int nClients);
 
 
 #endif

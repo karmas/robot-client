@@ -82,13 +82,13 @@ int main(int argc, char **argv)
   // joystick support for client one
   ArJoyHandler joyHandler;
   MoveHandler *moveJoyHandler = NULL;
-  if (!joyHandler.init()) {
-    echo("Could not initialize joystick");
-  }
+  if (!joyHandler.init()) echo("NO JOYSTICK!!!");
   else {
     joyHandler.setSpeeds(50, 100);
     moveJoyHandler = new MoveJoyHandler(clients, &joyHandler);
   }
+
+  keyVsJoy(moveKeyHandler, moveJoyHandler, clients.size());
 
   // start all the clients
   startClients(clients);
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
   // check for key presses, button presses and new data
   while (clients[0]->getRunningWithLock()) {
     keyHandler.checkKeys();
-    moveKeyHandler->update();
+    if (moveKeyHandler) moveKeyHandler->update();
     if (moveJoyHandler) moveJoyHandler->update();
     ArUtil::sleep(100);
     if (viewer) viewer->updateDisplay();

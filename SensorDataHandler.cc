@@ -283,8 +283,6 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
 {
   // Retrieve header information
   int nPoints = packet->bufToByte4();
-  int channels = packet->bufToByte4();
-
   MyPoint point;
 
   // create a point using data section of packet
