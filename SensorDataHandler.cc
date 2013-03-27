@@ -1,6 +1,12 @@
 #include <ctime>
 #include <cmath>
 
+#include "pcl/io/pcd_io.h"
+#include <pcl/filters/voxel_grid.h>
+//#include <pcl/filters/statistical_outlier_removal.h>
+
+#include <cv.h>
+
 #include "helpers.h"
 #include "SensorDataHandler.h"
 
@@ -413,5 +419,17 @@ MyCloud::Ptr voxelFilter(MyCloud::Ptr source, const MyPoint &leafSize)
   // filter and set to the filtered cloud
   voxelGrid.setInputCloud(source);
   voxelGrid.filter(*filteredCloud);
+  return filteredCloud;
+}
+
+// Remove outliers and return filtered cloud
+MyCloud::Ptr statsFilter(MyCloud::Ptr source, const int k)
+{
+  // this object performs the filtering
+
+  // filtered cloud is stored here
+  MyCloud::Ptr filteredCloud(new MyCloud);
+
+  // filter and set to the filtered cloud
   return filteredCloud;
 }

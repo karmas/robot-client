@@ -5,17 +5,16 @@
 
 #include "ArNetworking.h"
 
-#include "pcl/io/io.h"
-#include "pcl/io/file_io.h"
-#include "pcl/io/pcd_io.h"
 #include "pcl/point_types.h"
 #include "pcl/point_cloud.h"
-#include <pcl/visualization/cloud_viewer.h>
-#include <pcl/filters/voxel_grid.h>
-
-#include <cv.h>
 
 #include "ConfigFileReader.h"
+
+
+// forward declaration
+namespace cv {
+  class KalmanFilter;
+}
 
 typedef pcl::PointXYZRGB MyPoint;
 typedef pcl::PointCloud<MyPoint> MyCloud;
@@ -129,6 +128,7 @@ double calcRegionDensity(MyCloud::Ptr cloud,
     			 const MyPoint &minVal, const MyPoint &maxVal,
 			 int divisor);
 MyCloud::Ptr voxelFilter(MyCloud::Ptr source, const MyPoint &leafSize);
+MyCloud::Ptr statsFilter(MyCloud::Ptr source, const int k = 10);
 
 
 #endif

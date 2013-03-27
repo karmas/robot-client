@@ -1,6 +1,5 @@
 #include <sstream>
 
-#include "helpers.h"
 #include "SensorDataHandler.h"
 #include "SensorDataViewer.h"
 

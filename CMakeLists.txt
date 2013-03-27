@@ -7,8 +7,6 @@ set(SRC
     SensorDataHandler.cc SensorDataViewer.cc client.cc)
 # Program name
 set(PROG client)
-# Compilation flags
-set(CMAKE_CXX_FLAGS -g)
 
 # use cmake to find PCL library
 find_package(PCL 1.3 REQUIRED 
@@ -32,9 +30,8 @@ link_directories(${PCL_LIBRARY_DIRS})
 #add_definitions(${PCL_DEFINITIONS})
 # OpenCV libraries are in default location
 
-# C++ flags
-#set(CMAKE_CXX_FLAGS -Wall)
-
+# Compilation flags
+add_definitions(-g -Wno-deprecated-declarations)
 # Create the executable
 add_executable(${PROG} ${SRC})
 
