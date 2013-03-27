@@ -314,18 +314,16 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
     point.y = static_cast<float>(packet->bufToByte2());
     point.z = static_cast<float>(packet->bufToByte2());
     // get color information
-    point.b = packet->bufToByte();
-    point.g = packet->bufToByte();
     point.r = packet->bufToByte();
+    point.g = packet->bufToByte();
+    point.b = packet->bufToByte();
     // add point to the cloud
     tempCloud->push_back(point);
   }
 
-  // filter with chosen k value where k is number of neighbors
-  tempCloud = voxelFilter(tempCloud, myVoxelLeaf);
-  //tempCloud = statsFilter(tempCloud, 2);
-
+  tempCloud = statsFilter(tempCloud, 10);
   *myDisplayCloud += *tempCloud;
+  tempCloud->clear();
 }
 
 // write stereo camera data to files in given directory
