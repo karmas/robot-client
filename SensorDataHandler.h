@@ -15,8 +15,39 @@
 
 #include <cv.h>
 
-#include "PCLutils.h"
 #include "ConfigFileReader.h"
+
+typedef pcl::PointXYZRGB MyPoint;
+typedef pcl::PointCloud<MyPoint> MyCloud;
+
+// group robot position, heading and timestamp
+struct RobotInfo {
+  RobotInfo(const MyPoint &pt, long ts, double h)
+    : point(pt), timeStamp(ts), th(h) { }
+  MyPoint point;
+  long timeStamp;
+  double th;	// heading in degrees
+};
+
+// a time stamped point cloud
+class TimeStampedPCL {
+public:
+  TimeStampedPCL(MyCloud::Ptr c, long ts)
+    : cloud(c), timeStamp(ts) { }
+  MyCloud::Ptr getCloud() { return cloud; }
+  long getTimeStamp() { return timeStamp; }
+
+private:
+  MyCloud::Ptr cloud;
+  long timeStamp;
+
+  // make copying illegal
+  TimeStampedPCL(const TimeStampedPCL &) {}
+  TimeStampedPCL &operator=(const TimeStampedPCL &) { return *this; }
+};
+
+
+
 
 // Abstract base class which provides the interface for class that
 // handle sensor data from the robot
@@ -94,7 +125,10 @@ void createSensorDataHandlers(
     std::vector<HostInfo> &hostsInfo);
 void writeSensorDataToDisk(
     std::vector<SensorDataHandler *> &sensorDataHandlers);
-
+double calcRegionDensity(MyCloud::Ptr cloud,
+    			 const MyPoint &minVal, const MyPoint &maxVal,
+			 int divisor);
+MyCloud::Ptr voxelFilter(MyCloud::Ptr source, const MyPoint &leafSize);
 
 
 #endif
