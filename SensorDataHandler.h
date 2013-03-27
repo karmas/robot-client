@@ -67,6 +67,7 @@ protected:
   const char *myDataName;
   const int myRequestFreq;
   MyCloud::Ptr myDisplayCloud;
+  MyPoint myVoxelLeaf;
 };
 
 
@@ -96,7 +97,6 @@ private:
   const TransformInfo myTransformInfo;
   const double myCosTheta;
   const double mySinTheta;
-  MyPoint myVoxelLeaf;
   MyCloud::Ptr myRobotCloudFiltered;
   cv::KalmanFilter *myKalmanFilter;
 };
@@ -128,7 +128,7 @@ double calcRegionDensity(MyCloud::Ptr cloud,
     			 const MyPoint &minVal, const MyPoint &maxVal,
 			 int divisor);
 MyCloud::Ptr voxelFilter(MyCloud::Ptr source, const MyPoint &leafSize);
-MyCloud::Ptr statsFilter(MyCloud::Ptr source, const int k = 10);
+MyCloud::Ptr statsFilter(MyCloud::Ptr source, const int k);
 
 
 #endif

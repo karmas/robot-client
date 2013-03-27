@@ -3,14 +3,18 @@
 
 #include "pcl/io/pcd_io.h"
 #include <pcl/filters/voxel_grid.h>
-//#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 
+
+// 'cv.h' conflicts with 'statistical_outlier_removal.h'
+//#define KALMAN_FILTER
+#ifdef KALMAN_FILTER
 #include <cv.h>
+#endif
 
 #include "helpers.h"
 #include "SensorDataHandler.h"
 
-//#define KALMAN_FILTER
 
 // useful constants for the kalman filter
 const int stateDims = 2;
@@ -24,6 +28,9 @@ SensorDataHandler::SensorDataHandler(ArClientBase *client,
   : myClient(client), myDataName(strdup(dataName)),
     myRequestFreq(requestFreq), myDisplayCloud(new MyCloud)
 {
+  // set the voxel leaf to 1 cm
+  // note: the clouds are storing in mm
+  myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 10.0f;
 }
 
 // free up resources
@@ -72,14 +79,16 @@ SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
     mySinTheta(sin(myTransformInfo.thetaOffset*toRadian)),
     myRobotCloudFiltered(new MyCloud),
     myKalmanFilter(
-	new cv::KalmanFilter(stateDims, measurementDims))
+#ifdef KALMAN_FILTER
+	new cv::KalmanFilter(stateDims, measurementDims)
+#else
+	NULL
+#endif
+    )
 {
   myClient->addHandler(myDataName, &myHandleFtr);
 
-  // set the voxel leaf to 1 cm
-  // note: the clouds are storing in mm
-  myVoxelLeaf.x = myVoxelLeaf.y = myVoxelLeaf.z = 10.0f;
-
+#ifdef KALMAN_FILTER
   ////////////////////////////////////////////////
   // initialize the model for the kalman filter//
   // ////////////////////////////////////////////
@@ -99,6 +108,7 @@ SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
   // initial state is robot's starting pose
   myKalmanFilter->statePost.at<float>(0) = 0 + myTransformInfo.xOffset;
   myKalmanFilter->statePost.at<float>(1) = 0 + myTransformInfo.yOffset;
+#endif
 }
 
 // stop the data requests and free up resources
@@ -109,7 +119,9 @@ SensorDataLaserHandler::~SensorDataLaserHandler()
     delete myRobotInfos[i];
   for (size_t i = 0; i < myLaserClouds.size(); i++)
     delete myLaserClouds[i];
+#ifdef KALMAN_FILTER
   delete myKalmanFilter;
+#endif
 }
 
 // Decode the data packet received
@@ -210,6 +222,7 @@ void SensorDataLaserHandler::updateLaserReadings(ArNetPacket *packet,
 // kalman filtering of robot position
 void SensorDataLaserHandler::filterRobotLocation(MyPoint &measured)
 {
+#ifdef KALMAN_FILTER
   myKalmanFilter->predict();	// perform prediction
 
   // fill measurement matrix with values from odometer
@@ -231,6 +244,7 @@ void SensorDataLaserHandler::filterRobotLocation(MyPoint &measured)
   // remember the filtered positions and display
   myRobotCloudFiltered->push_back(pointFiltered);
   myDisplayCloud->push_back(pointFiltered);
+#endif
 }
 
 // Writes the single point cloud consisting of robot locations to
@@ -287,9 +301,11 @@ void SensorDataStereoCamHandler::request()
 // Decodes packet received from stereocamera
 void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
 {
+  static MyPoint point;
+  static MyCloud::Ptr tempCloud(new MyCloud);
+
   // Retrieve header information
   int nPoints = packet->bufToByte4();
-  MyPoint point;
 
   // create a point using data section of packet
   for (int i = 0; i < nPoints; i++) {
@@ -302,8 +318,14 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
     point.g = packet->bufToByte();
     point.r = packet->bufToByte();
     // add point to the cloud
-    myDisplayCloud->push_back(point);
+    tempCloud->push_back(point);
   }
+
+  // filter with chosen k value where k is number of neighbors
+  tempCloud = voxelFilter(tempCloud, myVoxelLeaf);
+  //tempCloud = statsFilter(tempCloud, 2);
+
+  *myDisplayCloud += *tempCloud;
 }
 
 // write stereo camera data to files in given directory
@@ -409,15 +431,13 @@ double calcRegionDensity(MyCloud::Ptr cloud,
 // Perform voxel filter and return filtered cloud
 MyCloud::Ptr voxelFilter(MyCloud::Ptr source, const MyPoint &leafSize)
 {
-  // this object performs the filtering
+  // set filter settings
   pcl::VoxelGrid<MyPoint> voxelGrid;
+  voxelGrid.setInputCloud(source);
   voxelGrid.setLeafSize(leafSize.x, leafSize.y, leafSize.z);
 
-  // filtered cloud is stored here
+  // filter and return filtered cloud
   MyCloud::Ptr filteredCloud(new MyCloud);
-
-  // filter and set to the filtered cloud
-  voxelGrid.setInputCloud(source);
   voxelGrid.filter(*filteredCloud);
   return filteredCloud;
 }
@@ -425,11 +445,14 @@ MyCloud::Ptr voxelFilter(MyCloud::Ptr source, const MyPoint &leafSize)
 // Remove outliers and return filtered cloud
 MyCloud::Ptr statsFilter(MyCloud::Ptr source, const int k)
 {
-  // this object performs the filtering
+  // set filter settings
+  pcl::StatisticalOutlierRemoval<MyPoint> outlierRemoval;
+  outlierRemoval.setInputCloud(source);
+  outlierRemoval.setMeanK(k);
+  outlierRemoval.setStddevMulThresh(1.0);
 
-  // filtered cloud is stored here
+  // filter and return filtered cloud
   MyCloud::Ptr filteredCloud(new MyCloud);
-
-  // filter and set to the filtered cloud
+  outlierRemoval.filter(*filteredCloud);
   return filteredCloud;
 }
