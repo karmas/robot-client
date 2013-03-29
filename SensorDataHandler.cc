@@ -24,9 +24,10 @@ const float measurementNoiseCovValue = 1e-2;
 
 
 SensorDataHandler::SensorDataHandler(ArClientBase *client, 
-    const char *dataName, int requestFreq)
+    const char *dataName, int requestFreq, int robotColor)
   : myClient(client), myDataName(strdup(dataName)),
-    myRequestFreq(requestFreq), myDisplayCloud(new MyCloud)
+    myRequestFreq(requestFreq), myDisplayCloud(new MyCloud),
+    myRobotCloud(new MyCloud), myRobotColor(robotColor)
 {
   // set the voxel leaf to 1 cm
   // note: the clouds are storing in mm
@@ -44,11 +45,35 @@ MyCloud::Ptr SensorDataHandler::getDisplayCloud()
   return myDisplayCloud;
 }
 
-void SensorDataHandler::writeDisplayCloud(const std::string &outDir)
+// Writes the single point cloud consisting of robot locations to
+// given directory. Writes all the laser point clouds to the given
+// directory.
+void SensorDataHandler::writeTo(const std::string &outDir)
 {
-  std::string filePath(outDir + '/' + "stereocamaggregate.pcd");
-  pcl::io::savePCDFile(filePath, *myDisplayCloud);
+  std::string subDir("");
+  std::string filePath = "";
+  std::string extension = ".pcd";
+  MyCloud::Ptr cloud;
+
+  // create subdirectory for this client's data
+  subDir = outDir + "/" + myClient->getRobotName();
+  if (!genDir(subDir)) return;
+
+  // robot position cloud filename
+  filePath = subDir + "/" + "path" + extension;
+  pcl::io::savePCDFile(filePath, *myRobotCloud);
+
+  // write the laser cloud files using the timestamp as name
+  for (size_t i = 0; i < myTSClouds.size(); i++) {
+    cloud = myTSClouds[i]->getCloud();
+    std::ostringstream os;
+    os << myTSClouds[i]->getTimeStamp();
+    filePath = subDir + "/" + os.str() + extension;
+    pcl::io::savePCDFile(filePath, *cloud);
+  }
 }
+
+
 
 ////////////////////////////////////////////////////////////////////
 // SensorDataLaserHandler
@@ -67,10 +92,9 @@ const double SensorDataLaserHandler::toRadian = pi/180;
 // velocities could be used.
 SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
     const HostInfo &hostInfo)
-  : SensorDataHandler(client, "getSensorDataLaser", hostInfo.requestFreq),
+  : SensorDataHandler(client, "getSensorDataLaser", 
+      hostInfo.requestFreq, hostInfo.locationColor),
     myHandleFtr(this, &SensorDataLaserHandler::handle),
-    myRobotCloud(new MyCloud),
-    myRobotColor(hostInfo.locationColor),
     myLaserColor(hostInfo.laserColor),
     myTransformInfo(hostInfo.transformInfo.xOffset,
 		  hostInfo.transformInfo.yOffset,
@@ -117,8 +141,8 @@ SensorDataLaserHandler::~SensorDataLaserHandler()
   myClient->requestStop(myDataName);
   for (size_t i = 0; i < myRobotInfos.size(); i++)
     delete myRobotInfos[i];
-  for (size_t i = 0; i < myLaserClouds.size(); i++)
-    delete myLaserClouds[i];
+  for (size_t i = 0; i < myTSClouds.size(); i++)
+    delete myTSClouds[i];
 #ifdef KALMAN_FILTER
   delete myKalmanFilter;
 #endif
@@ -214,7 +238,7 @@ void SensorDataLaserHandler::updateLaserReadings(ArNetPacket *packet,
 
   // downsample the current laser cloud and store it
   tempLaserCloud = voxelFilter(tempLaserCloud, myVoxelLeaf);
-  myLaserClouds.push_back(new TimeStampedPCL(tempLaserCloud, timeStamp));
+  myTSClouds.push_back(new TSCloud(tempLaserCloud, timeStamp));
   // downsample the aggregate laser cloud
   myDisplayCloud = voxelFilter(myDisplayCloud, myVoxelLeaf);
 }
@@ -247,33 +271,6 @@ void SensorDataLaserHandler::filterRobotLocation(MyPoint &measured)
 #endif
 }
 
-// Writes the single point cloud consisting of robot locations to
-// given directory. Writes all the laser point clouds to the given
-// directory.
-void SensorDataLaserHandler::writeTo(const std::string &outDir)
-{
-  std::string subDir("");
-  std::string filePath = "";
-  std::string extension = ".pcd";
-  MyCloud::Ptr cloud;
-
-  // create subdirectory for this client's data
-  subDir = outDir + "/" + myClient->getRobotName();
-  if (!genDir(subDir)) return;
-
-  // robot position cloud filename
-  filePath = subDir + "/" + "path" + extension;
-  pcl::io::savePCDFile(filePath, *myRobotCloud);
-
-  // write the laser cloud files using the timestamp as name
-  for (size_t i = 0; i < myLaserClouds.size(); i++) {
-    cloud = myLaserClouds[i]->getCloud();
-    std::ostringstream os;
-    os << myLaserClouds[i]->getTimeStamp();
-    filePath = subDir + "/" + os.str() + extension;
-    pcl::io::savePCDFile(filePath, *cloud);
-  }
-}
 
 ////////////////////////////////////////////////////////////////////
 // SensorDataStereoCamHandler
@@ -281,7 +278,8 @@ void SensorDataLaserHandler::writeTo(const std::string &outDir)
 
 SensorDataStereoCamHandler::SensorDataStereoCamHandler(ArClientBase *client,
     const HostInfo &hostInfo)
-  : SensorDataHandler(client, "getSensorDataStereoCam", hostInfo.requestFreq),
+  : SensorDataHandler(client, "getSensorDataStereoCam", 
+      hostInfo.requestFreq, hostInfo.locationColor),
     myHandleFtr(this, &SensorDataStereoCamHandler::handle)
 {
   myClient->addHandler(myDataName, &myHandleFtr);
@@ -301,8 +299,24 @@ void SensorDataStereoCamHandler::request()
 // Decodes packet received from stereocamera
 void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
 {
+  long timeStamp = getElapsedTime();
+
   static MyPoint point;
-  static MyCloud::Ptr tempCloud(new MyCloud);
+  MyCloud::Ptr tempCloud(new MyCloud);
+
+  // get robot location from packet
+  // reference frame is individual robot's starting point
+  point.x = static_cast<float>(packet->bufToDouble());
+  point.y = static_cast<float>(packet->bufToDouble());
+  point.z = 0.0;
+  point.rgba = myRobotColor; 
+
+  // get robot heading
+  double th = packet->bufToDouble();
+  myDisplayCloud->push_back(point);
+  myRobotCloud->push_back(point);
+  // store the robot position when the scan is taken
+  myRobotInfos.push_back(new RobotInfo(point, timeStamp, th));
 
   // Retrieve header information
   int nPoints = packet->bufToByte4();
@@ -323,15 +337,9 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
 
   tempCloud = statsFilter(tempCloud, 10);
   *myDisplayCloud += *tempCloud;
-  tempCloud->clear();
+  myTSClouds.push_back(new TSCloud(tempCloud, timeStamp));
 }
 
-// write stereo camera data to files in given directory
-void SensorDataStereoCamHandler::writeTo(const std::string &outDir)
-{
-  echo("Only writes the aggregate cloud file");
-  writeDisplayCloud(outDir);
-}
 
 
 

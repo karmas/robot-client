@@ -29,9 +29,9 @@ struct RobotInfo {
 };
 
 // a time stamped point cloud
-class TimeStampedPCL {
+class TSCloud {
 public:
-  TimeStampedPCL(MyCloud::Ptr c, long ts)
+  TSCloud(MyCloud::Ptr c, long ts)
     : cloud(c), timeStamp(ts) { }
   MyCloud::Ptr getCloud() { return cloud; }
   long getTimeStamp() { return timeStamp; }
@@ -41,8 +41,8 @@ private:
   long timeStamp;
 
   // make copying illegal
-  TimeStampedPCL(const TimeStampedPCL &) {}
-  TimeStampedPCL &operator=(const TimeStampedPCL &) { return *this; }
+  TSCloud(const TSCloud &) {}
+  TSCloud &operator=(const TSCloud &) { return *this; }
 };
 
 
@@ -53,13 +53,12 @@ private:
 class SensorDataHandler {
 public:
   virtual void request() = 0;
-  virtual void writeTo(const std::string &outDir) = 0;
+  virtual void writeTo(const std::string &outDir);
   MyCloud::Ptr getDisplayCloud();
-  void writeDisplayCloud(const std::string &outDir);
 
 protected:
   SensorDataHandler(ArClientBase *client, const char *dataName,
-      		    int requestFreq);
+      		    int requestFreq, int myRobotColor);
   virtual ~SensorDataHandler();
   virtual void handle(ArNetPacket *packet) = 0;
 
@@ -68,6 +67,10 @@ protected:
   const int myRequestFreq;
   MyCloud::Ptr myDisplayCloud;
   MyPoint myVoxelLeaf;
+  std::vector<RobotInfo *> myRobotInfos;
+  MyCloud::Ptr myRobotCloud;
+  const int myRobotColor;
+  std::vector<TSCloud *> myTSClouds;
 };
 
 
@@ -78,7 +81,6 @@ public:
   ~SensorDataLaserHandler();
   virtual void request();
   virtual void handle(ArNetPacket *packet);
-  virtual void writeTo(const std::string &outDir);
 
   static const double pi;
   static const double toRadian;
@@ -89,10 +91,6 @@ private:
   void filterRobotLocation(MyPoint &measured);
 
   ArFunctor1C<SensorDataLaserHandler, ArNetPacket *> myHandleFtr;
-  std::vector<RobotInfo *> myRobotInfos;
-  MyCloud::Ptr myRobotCloud;
-  const int myRobotColor;
-  std::vector<TimeStampedPCL *> myLaserClouds;
   const int myLaserColor;
   const TransformInfo myTransformInfo;
   const double myCosTheta;
@@ -108,8 +106,6 @@ public:
   ~SensorDataStereoCamHandler();
   virtual void request();
   virtual void handle(ArNetPacket *packet);
-  MyCloud::Ptr displayCloud();
-  void writeTo(const std::string &outDir);
 
 private:
   ArFunctor1C<SensorDataStereoCamHandler, ArNetPacket *> myHandleFtr;
