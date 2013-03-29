@@ -107,8 +107,8 @@ int main(int argc, char **argv)
     keyHandler.checkKeys();
     if (moveKeyHandler) moveKeyHandler->update();
     if (moveJoyHandler) moveJoyHandler->update();
-    ArUtil::sleep(100);
     if (viewer) viewer->updateDisplay();
+    ArUtil::sleep(100);
   }
 
   Aria::shutdown();

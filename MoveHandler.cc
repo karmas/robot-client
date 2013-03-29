@@ -10,7 +10,7 @@ const char *MoveHandler::actions[] = {
   "Move backward",
   "Turn left",
   "Turn right",
-  "Wander on/off",
+  "Wander",
   "Stop",
   "Unsafe on/off",
   "Next robot",
@@ -21,7 +21,7 @@ const char *MoveHandler::actions[] = {
 
 MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients)
   : myClients(clients), myClientIndex(0), myClient(myClients[0]),
-    myTransRatio(0), myRotRatio(0), mySpeedLimit(70)
+    myTransRatio(0), myRotRatio(0), mySpeedLimit(50)
 {
   // set default modes for clients
   myModes.push_back(Mode(false, true));
@@ -33,7 +33,8 @@ void MoveHandler::ratioDrive()
   if (!myClient->dataExists("ratioDrive") ||
       myModes[myClientIndex].myWander) return;
 
-  ArNetPacket packet;
+  static ArNetPacket packet;
+  packet.empty();
   packet.doubleToBuf(myTransRatio);
   packet.doubleToBuf(myRotRatio);
   packet.doubleToBuf(mySpeedLimit);
@@ -43,19 +44,16 @@ void MoveHandler::ratioDrive()
   myRotRatio = 0;
 }
 
-// alternate between wander and normal mode
+// start wandering
 void MoveHandler::wander()
 {
-  if (!myClient->dataExists("wander")) return;
+  if (!myClient->dataExists("wander") ||
+      myModes[myClientIndex].myWander) return;
 
-  myModes[myClientIndex].myWander = !myModes[myClientIndex].myWander;
-
-  if (myModes[myClientIndex].myWander) {
-    myClient->requestOnce("wander");
-    std::cout << "\t" << myClient->getRobotName() 
-      << " wander mode" << std::endl;
-  }
-  else stop();
+  myModes[myClientIndex].myWander = true;
+  myClient->requestOnce("wander");
+  std::cout << "\t" << myClient->getRobotName() 
+    << " wander mode" << std::endl;
 }
 
 // stop the robot
@@ -240,10 +238,12 @@ const char *MoveJoyHandler::keys[] = {
   "Button 10",
 };
 
+// Since joystick is analog, give high speed limit
 MoveJoyHandler::MoveJoyHandler(
     std::vector<ArClientBase *> &clients, ArJoyHandler *joyHandler)
   : MoveHandler(clients), myJoyHandler(joyHandler)
 {
+  mySpeedLimit = 90;
 }
 
 // check for key press and perform appropriate command
