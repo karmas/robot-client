@@ -31,7 +31,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 # OpenCV libraries are in default location
 
 # Compilation flags
-add_definitions(-g -Wno-deprecated-declarations)
+add_definitions(-g -Wall -Wno-deprecated-declarations -Wno-unknown-pragmas)
 # Create the executable
 add_executable(${PROG} ${SRC})
 

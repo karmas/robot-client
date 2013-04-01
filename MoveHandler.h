@@ -32,7 +32,7 @@ protected:
   static const char *actions[];
 
   std::vector<ArClientBase *> &myClients;
-  int myClientIndex;
+  unsigned short myClientIndex;
   ArClientBase *myClient;
   double myTransRatio;
   double myRotRatio;

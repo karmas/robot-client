@@ -106,9 +106,13 @@ public:
   ~SensorDataStereoCamHandler();
   virtual void request();
   virtual void handle(ArNetPacket *packet);
+  virtual void handle2(ArNetPacket *packet);
 
 private:
   ArFunctor1C<SensorDataStereoCamHandler, ArNetPacket *> myHandleFtr;
+  const int myStatFilterK;
+  const char *myDataName2;
+  ArFunctor1C<SensorDataStereoCamHandler, ArNetPacket *> myHandleFtr2;
 };
 
 

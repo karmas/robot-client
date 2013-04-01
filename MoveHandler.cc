@@ -190,7 +190,7 @@ void MoveKeyHandler::displayKeys()
     << std::setw(colWidthKey) << "Key" << std::endl
     << std::string(colWidthAction + colWidthKey, '-') << std::endl;
 
-  for (int i = 0; i < sizeof(keys)/sizeof(keys[0]); i++) {
+  for (size_t i = 0; i < sizeof(keys)/sizeof(keys[0]); i++) {
     std::cout << std::setw(colWidthAction) << actions[i]
       << std::setw(colWidthKey) << moveKeyToString(keys[i]) << std::endl;
   }
@@ -278,7 +278,7 @@ void MoveJoyHandler::displayKeys()
     << std::setw(colWidthKey) << "Key" << std::endl
     << std::string(colWidthAction + colWidthKey, '-') << std::endl;
 
-  for (int i = 0; i < sizeof(keys)/sizeof(keys[0]); i++) {
+  for (size_t i = 0; i < sizeof(keys)/sizeof(keys[0]); i++) {
     std::cout << std::setw(colWidthAction) << actions[i]
       << std::setw(colWidthKey) << keys[i] << std::endl;
   }

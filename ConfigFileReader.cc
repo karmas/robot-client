@@ -257,7 +257,7 @@ void ConfigFileReader::printInfoFields()
   std::cout << std::endl;
   echo("VALID FIELDS ARE:");
 
-  for (int i = 0; i < sizeof(infoFields)/sizeof(infoFields[0]); i++) {
+  for (size_t i = 0; i < sizeof(infoFields)/sizeof(infoFields[0]); i++) {
     echo(infoFields[i]);
   }
 }
@@ -268,7 +268,7 @@ void ConfigFileReader::printSensors()
   std::cout << std::endl;
   echo("VALID SENSORS ARE:");
 
-  for (int i = 0; i < sizeof(sensors)/sizeof(sensors[0]); i++) {
+  for (size_t i = 0; i < sizeof(sensors)/sizeof(sensors[0]); i++) {
     echo(sensors[i]);
   }
 }
@@ -276,7 +276,7 @@ void ConfigFileReader::printSensors()
 // check the supplied string name of sensor for validity
 void ConfigFileReader::checkSensorName(const std::string &s)
 {
-  for (int i = 0; i < sizeof(sensors)/sizeof(sensors[0]); i++)
+  for (size_t i = 0; i < sizeof(sensors)/sizeof(sensors[0]); i++)
     if (s == sensors[i]) return;
 
   echo("invalid field name", s);

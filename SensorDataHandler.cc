@@ -280,20 +280,26 @@ SensorDataStereoCamHandler::SensorDataStereoCamHandler(ArClientBase *client,
     const HostInfo &hostInfo)
   : SensorDataHandler(client, "getSensorDataStereoCam", 
       hostInfo.requestFreq, hostInfo.locationColor),
-    myHandleFtr(this, &SensorDataStereoCamHandler::handle)
+    myHandleFtr(this, &SensorDataStereoCamHandler::handle),
+    myStatFilterK(20),
+    myDataName2("getSensorDataStereoCam2"),
+    myHandleFtr2(this, &SensorDataStereoCamHandler::handle2)
 {
   myClient->addHandler(myDataName, &myHandleFtr);
+  myClient->addHandler(myDataName2, &myHandleFtr2);
 }
 
 // stop the data requests and free up resources
 SensorDataStereoCamHandler::~SensorDataStereoCamHandler()
 {
   myClient->requestStop(myDataName);
+  myClient->requestStop(myDataName2);
 }
 
 void SensorDataStereoCamHandler::request()
 {
   myClient->request(myDataName, myRequestFreq);
+  myClient->request(myDataName2, myRequestFreq);
 }
 
 // Decodes packet received from stereocamera
@@ -335,12 +341,55 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
     tempCloud->push_back(point);
   }
 
-  tempCloud = statsFilter(tempCloud, 10);
+  tempCloud = statsFilter(tempCloud, myStatFilterK);
   *myDisplayCloud += *tempCloud;
   myTSClouds.push_back(new TSCloud(tempCloud, timeStamp));
 }
 
 
+// Decodes packet received from stereocamera
+void SensorDataStereoCamHandler::handle2(ArNetPacket *packet)
+{
+  long timeStamp = getElapsedTime();
+
+  static MyPoint point;
+  MyCloud::Ptr tempCloud(new MyCloud);
+
+  // get robot location from packet
+  // reference frame is individual robot's starting point
+  point.x = static_cast<float>(packet->bufToDouble());
+  point.y = static_cast<float>(packet->bufToDouble());
+  point.z = 0.0;
+  point.rgba = myRobotColor; 
+
+  // get robot heading
+  double th = packet->bufToDouble();
+  myDisplayCloud->push_back(point);
+  myRobotCloud->push_back(point);
+  // store the robot position when the scan is taken
+  myRobotInfos.push_back(new RobotInfo(point, timeStamp, th));
+
+  // Retrieve header information
+  int nPoints = packet->bufToByte4();
+
+  // create a point using data section of packet
+  for (int i = 0; i < nPoints; i++) {
+    // get co-ordinate information
+    point.x = static_cast<float>(packet->bufToByte2());
+    point.y = static_cast<float>(packet->bufToByte2());
+    point.z = static_cast<float>(packet->bufToByte2());
+    // get color information
+    point.r = packet->bufToByte();
+    point.g = packet->bufToByte();
+    point.b = packet->bufToByte();
+    // add point to the cloud
+    tempCloud->push_back(point);
+  }
+
+  tempCloud = statsFilter(tempCloud, myStatFilterK);
+  *myDisplayCloud += *tempCloud;
+  myTSClouds.push_back(new TSCloud(tempCloud, timeStamp));
+}
 
 
 ////////////////////////////////////////////////////////////////////
