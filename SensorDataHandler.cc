@@ -12,6 +12,8 @@
 #include <cv.h>
 #endif
 
+#define STEREO_CAM_DECOMPRESS
+
 #include "helpers.h"
 #include "compress.h"
 #include "SensorDataHandler.h"
@@ -328,12 +330,22 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
   // Retrieve header information
   int nPoints = packet->bufToByte4();
 
+#ifdef STEREO_CAM_DECOMPRESS
+  static unsigned compressed = 0;
+#endif
   // create a point using data section of packet
   for (int i = 0; i < nPoints; i++) {
     // get co-ordinate information
+#ifdef STEREO_CAM_DECOMPRESS
+    compressed = packet->bufToUByte4();
+    point.x = extractX(compressed);
+    point.y = extractY(compressed);
+    point.z = extractZ(compressed);
+#else
     point.x = static_cast<float>(packet->bufToByte2());
     point.y = static_cast<float>(packet->bufToByte2());
     point.z = static_cast<float>(packet->bufToByte2());
+#endif
     // get color information
     point.r = packet->bufToByte();
     point.g = packet->bufToByte();
@@ -373,12 +385,22 @@ void SensorDataStereoCamHandler::handle2(ArNetPacket *packet)
   // Retrieve header information
   int nPoints = packet->bufToByte4();
 
+#ifdef STEREO_CAM_DECOMPRESS
+  static unsigned compressed = 0;
+#endif
   // create a point using data section of packet
   for (int i = 0; i < nPoints; i++) {
     // get co-ordinate information
+#ifdef STEREO_CAM_DECOMPRESS
+    compressed = packet->bufToUByte4();
+    point.x = extractX(compressed);
+    point.y = extractY(compressed);
+    point.z = extractZ(compressed);
+#else
     point.x = static_cast<float>(packet->bufToByte2());
     point.y = static_cast<float>(packet->bufToByte2());
     point.z = static_cast<float>(packet->bufToByte2());
+#endif
     // get color information
     point.r = packet->bufToByte();
     point.g = packet->bufToByte();
