@@ -13,6 +13,7 @@
 #endif
 
 #include "helpers.h"
+#include "compress.h"
 #include "SensorDataHandler.h"
 
 
