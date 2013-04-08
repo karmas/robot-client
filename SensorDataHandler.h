@@ -55,6 +55,10 @@ public:
   virtual void request() = 0;
   virtual void writeTo(const std::string &outDir);
   MyCloud::Ptr getDisplayCloud();
+  MyPoint transformPoint(const ArPose &fromFrame, const MyPoint &point);
+
+  static const double pi;
+  static const double toRadian;
 
 protected:
   SensorDataHandler(ArClientBase *client, const char *dataName,
@@ -81,9 +85,6 @@ public:
   ~SensorDataLaserHandler();
   virtual void request();
   virtual void handle(ArNetPacket *packet);
-
-  static const double pi;
-  static const double toRadian;
 
 private:
   void updateRobotLocation(ArNetPacket *packet, long timeStamp);

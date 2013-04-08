@@ -70,16 +70,13 @@ void connectHosts(std::vector<ArClientBase *> &clients,
     client = new ArClientBase;
     client->setRobotName(createRobotName(hostsInfo[i]));
 
-    if (!client->blockingConnect(hostsInfo[i].ip, hostsInfo[i].port)) {
-      echo("unable to connect to", client->getRobotName());
-      Aria::shutdown();
-      exit(1);
-    }
-    else {
-      echo("connected to", client->getRobotName());
+    if (client->blockingConnect(hostsInfo[i].ip, hostsInfo[i].port)) {
       clients.push_back(client);
     }
   }
+
+  // need at least one robot connection
+  assert(clients.size());
 }
 
 // just start all the clients

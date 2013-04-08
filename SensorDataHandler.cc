@@ -26,6 +26,10 @@ const float processNoiseCovValue = 1e-1;
 const float measurementNoiseCovValue = 1e-2;
 
 
+const double SensorDataHandler::pi = 3.14159165f;
+const double SensorDataHandler::toRadian = pi/180;
+
+
 SensorDataHandler::SensorDataHandler(ArClientBase *client, 
     const char *dataName, int requestFreq, int robotColor)
   : myClient(client), myDataName(strdup(dataName)),
@@ -76,14 +80,36 @@ void SensorDataHandler::writeTo(const std::string &outDir)
   }
 }
 
+// @param fromFrame: local x-y reference frame which is offset from
+//   global x-y frame (0,0)
+// @param point: coordinates in that frame
+// @return: transformed co-ordinates to global x-y frame (0,0)
+MyPoint SensorDataHandler::transformPoint(
+    const ArPose &fromFrame, const MyPoint &point)
+{
+  MyPoint pointTrans(point.x, point.y, point.z);
+
+  // angle of rotation counterclockwise
+  double theta = (fromFrame.getTh())*toRadian;
+  double cosTheta = cos(theta);
+  double sinTheta = sin(theta);
+
+  // rotate to align with global frame
+  pointTrans.x = point.x * cosTheta - point.y * sinTheta;
+  pointTrans.y = point.x * sinTheta + point.y * cosTheta;
+
+  // translate to global frame
+  pointTrans.x += fromFrame.getX();
+  pointTrans.y += fromFrame.getY();
+
+  return pointTrans;
+}
+
 
 
 ////////////////////////////////////////////////////////////////////
 // SensorDataLaserHandler
 ////////////////////////////////////////////////////////////////////
-
-const double SensorDataLaserHandler::pi = 3.14159165f;
-const double SensorDataLaserHandler::toRadian = pi/180;
 
 // Attach packet handler.
 //
@@ -332,6 +358,8 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
 
 #ifdef STEREO_CAM_DECOMPRESS
   static unsigned compressed = 0;
+  ArPose localPose(point.x, point.y, th);
+  static MyPoint pointTrans;
 #endif
   // create a point using data section of packet
   for (int i = 0; i < nPoints; i++) {
@@ -341,6 +369,9 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
     point.x = extractX(compressed);
     point.y = extractY(compressed);
     point.z = extractZ(compressed);
+    pointTrans = transformPoint(localPose, point);
+    point.x = pointTrans.x;
+    point.y = pointTrans.y;
 #else
     point.x = static_cast<float>(packet->bufToByte2());
     point.y = static_cast<float>(packet->bufToByte2());
@@ -387,6 +418,8 @@ void SensorDataStereoCamHandler::handle2(ArNetPacket *packet)
 
 #ifdef STEREO_CAM_DECOMPRESS
   static unsigned compressed = 0;
+  static ArPose localPose(point.x, point.y, th);
+  static MyPoint pointTrans;
 #endif
   // create a point using data section of packet
   for (int i = 0; i < nPoints; i++) {
@@ -396,6 +429,9 @@ void SensorDataStereoCamHandler::handle2(ArNetPacket *packet)
     point.x = extractX(compressed);
     point.y = extractY(compressed);
     point.z = extractZ(compressed);
+    pointTrans = transformPoint(localPose, point);
+    point.x = pointTrans.x;
+    point.y = pointTrans.y;
 #else
     point.x = static_cast<float>(packet->bufToByte2());
     point.y = static_cast<float>(packet->bufToByte2());
