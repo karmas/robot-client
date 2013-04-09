@@ -338,7 +338,7 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
 
 #ifdef STEREO_CAM_DECOMPRESS
   static unsigned compressed = 0;
-  static TransformInfo localPose(point.x, point.y, th);
+  TransformInfo localPose(point.x, point.y, th);
   static MyPoint pointTrans;
 #endif
   // create a point using data section of packet
@@ -398,7 +398,7 @@ void SensorDataStereoCamHandler::handle2(ArNetPacket *packet)
 
 #ifdef STEREO_CAM_DECOMPRESS
   static unsigned compressed = 0;
-  static TransformInfo localPose(point.x, point.y, th);
+  TransformInfo localPose(point.x, point.y, th);
   static MyPoint pointTrans;
 #endif
   // create a point using data section of packet
