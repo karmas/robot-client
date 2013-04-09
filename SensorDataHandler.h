@@ -55,14 +55,15 @@ public:
   virtual void request() = 0;
   virtual void writeTo(const std::string &outDir);
   MyCloud::Ptr getDisplayCloud();
-  MyPoint transformPoint(const ArPose &fromFrame, const MyPoint &point);
+  MyPoint transformPoint(const TransformInfo &fromFrame,
+      const MyPoint &point);
 
   static const double pi;
   static const double toRadian;
 
 protected:
   SensorDataHandler(ArClientBase *client, const char *dataName,
-      		    int requestFreq, int myRobotColor);
+      const HostInfo &hostInfo);
   virtual ~SensorDataHandler();
   virtual void handle(ArNetPacket *packet) = 0;
 
@@ -75,6 +76,7 @@ protected:
   MyCloud::Ptr myRobotCloud;
   const int myRobotColor;
   std::vector<TSCloud *> myTSClouds;
+  const TransformInfo myTransformInfo;
 };
 
 
@@ -93,7 +95,6 @@ private:
 
   ArFunctor1C<SensorDataLaserHandler, ArNetPacket *> myHandleFtr;
   const int myLaserColor;
-  const TransformInfo myTransformInfo;
   const double myCosTheta;
   const double mySinTheta;
   MyCloud::Ptr myRobotCloudFiltered;

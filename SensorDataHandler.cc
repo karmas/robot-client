@@ -31,10 +31,11 @@ const double SensorDataHandler::toRadian = pi/180;
 
 
 SensorDataHandler::SensorDataHandler(ArClientBase *client, 
-    const char *dataName, int requestFreq, int robotColor)
+    const char *dataName, const HostInfo &hostInfo)
   : myClient(client), myDataName(strdup(dataName)),
-    myRequestFreq(requestFreq), myDisplayCloud(new MyCloud),
-    myRobotCloud(new MyCloud), myRobotColor(robotColor)
+    myRequestFreq(hostInfo.requestFreq), myDisplayCloud(new MyCloud),
+    myRobotCloud(new MyCloud), myRobotColor(hostInfo.locationColor),
+    myTransformInfo(hostInfo.transformInfo)
 {
   // set the voxel leaf to 1 cm
   // note: the clouds are storing in mm
@@ -85,23 +86,20 @@ void SensorDataHandler::writeTo(const std::string &outDir)
 // @param point: coordinates in that frame
 // @return: transformed co-ordinates to global x-y frame (0,0)
 MyPoint SensorDataHandler::transformPoint(
-    const ArPose &fromFrame, const MyPoint &point)
+    const TransformInfo &fromFrame, const MyPoint &point)
 {
-  MyPoint pointTrans(point.x, point.y, point.z);
-
+  MyPoint pointTrans;
   // angle of rotation counterclockwise
-  double theta = (fromFrame.getTh())*toRadian;
+  double theta = fromFrame.thetaOffset * toRadian;
   double cosTheta = cos(theta);
   double sinTheta = sin(theta);
-
   // rotate to align with global frame
   pointTrans.x = point.x * cosTheta - point.y * sinTheta;
   pointTrans.y = point.x * sinTheta + point.y * cosTheta;
-
   // translate to global frame
-  pointTrans.x += fromFrame.getX();
-  pointTrans.y += fromFrame.getY();
-
+  pointTrans.x += fromFrame.xOffset;
+  pointTrans.y += fromFrame.yOffset;
+  pointTrans.z = point.z;
   return pointTrans;
 }
 
@@ -121,13 +119,9 @@ MyPoint SensorDataHandler::transformPoint(
 // velocities could be used.
 SensorDataLaserHandler::SensorDataLaserHandler(ArClientBase *client,
     const HostInfo &hostInfo)
-  : SensorDataHandler(client, "getSensorDataLaser", 
-      hostInfo.requestFreq, hostInfo.locationColor),
+  : SensorDataHandler(client, "getSensorDataLaser", hostInfo), 
     myHandleFtr(this, &SensorDataLaserHandler::handle),
     myLaserColor(hostInfo.laserColor),
-    myTransformInfo(hostInfo.transformInfo.xOffset,
-		  hostInfo.transformInfo.yOffset,
-		  hostInfo.transformInfo.thetaOffset),
     myCosTheta(cos(myTransformInfo.thetaOffset*toRadian)),
     mySinTheta(sin(myTransformInfo.thetaOffset*toRadian)),
     myRobotCloudFiltered(new MyCloud),
@@ -197,37 +191,31 @@ void SensorDataLaserHandler::updateRobotLocation(ArNetPacket *packet,
     long timeStamp)
 {
   MyPoint origPoint;
-  MyPoint point;
 
   // get robot location from packet
   // reference frame is individual robot's starting point
   origPoint.x = static_cast<float>(packet->bufToDouble());
   origPoint.y = static_cast<float>(packet->bufToDouble());
+  origPoint.z = 0;
 
-  // rotate to global reference frame
-  point.x = origPoint.x * myCosTheta + origPoint.y * mySinTheta;
-  point.y = origPoint.y * myCosTheta - origPoint.x * mySinTheta;
-
-  // translate to global reference frame
-  point.x += myTransformInfo.xOffset;
-  point.y += myTransformInfo.yOffset;
-  point.z = 0.0;
-  point.rgba = myRobotColor; 
+  // transformation needed for multiple robots
+  MyPoint pointTrans = transformPoint(myTransformInfo, origPoint);
+  pointTrans.rgba = myRobotColor;
 
   // get robot heading
   double th = packet->bufToDouble();
   // store the robot position when the scan is taken
-  myRobotInfos.push_back(new RobotInfo(point, timeStamp, th));
+  myRobotInfos.push_back(new RobotInfo(pointTrans, timeStamp, th));
 
   // also add to cloud which will displayed
-  myDisplayCloud->push_back(point);
+  myDisplayCloud->push_back(pointTrans);
   // add to cloud for robot positions so that it can be written
   // as single file
-  myRobotCloud->push_back(point);
+  myRobotCloud->push_back(pointTrans);
 
 #ifdef KALMAN_FILTER
   // kalman filter of robot position
-  filterRobotLocation(point);
+  filterRobotLocation(pointTrans);
 #endif
 }
 
@@ -237,7 +225,7 @@ void SensorDataLaserHandler::updateLaserReadings(ArNetPacket *packet,
     long timeStamp)
 {
   MyPoint origPoint;
-  MyPoint point;
+  MyPoint pointTrans;
   MyCloud::Ptr tempLaserCloud(new MyCloud);
 
   // get number of laser readings
@@ -250,23 +238,16 @@ void SensorDataLaserHandler::updateLaserReadings(ArNetPacket *packet,
     origPoint.y = static_cast<float>(packet->bufToDouble());
     origPoint.z = static_cast<float>(packet->bufToDouble());
 
-    // rotate to global reference frame
-    point.x = origPoint.x * myCosTheta + origPoint.y * mySinTheta;
-    point.y = origPoint.y * myCosTheta - origPoint.x * mySinTheta;
+    // transformation needed for multiple robots
+    pointTrans = transformPoint(myTransformInfo, origPoint);
+    pointTrans.rgba = myLaserColor;
 
-    // translate to global reference frame
-    point.x += myTransformInfo.xOffset;
-    point.y += myTransformInfo.yOffset;
-    point.z = origPoint.z;
-    point.rgba = myLaserColor; 
-
-    tempLaserCloud->push_back(point);
-    // also add point in aggregate cloud which is used by viewer
-    myDisplayCloud->push_back(point);
+    tempLaserCloud->push_back(pointTrans);
   }
 
   // downsample the current laser cloud and store it
   tempLaserCloud = voxelFilter(tempLaserCloud, myVoxelLeaf);
+  *myDisplayCloud += *tempLaserCloud;
   myTSClouds.push_back(new TSCloud(tempLaserCloud, timeStamp));
   // downsample the aggregate laser cloud
   myDisplayCloud = voxelFilter(myDisplayCloud, myVoxelLeaf);
@@ -307,8 +288,7 @@ void SensorDataLaserHandler::filterRobotLocation(MyPoint &measured)
 
 SensorDataStereoCamHandler::SensorDataStereoCamHandler(ArClientBase *client,
     const HostInfo &hostInfo)
-  : SensorDataHandler(client, "getSensorDataStereoCam", 
-      hostInfo.requestFreq, hostInfo.locationColor),
+  : SensorDataHandler(client, "getSensorDataStereoCam", hostInfo),
     myHandleFtr(this, &SensorDataStereoCamHandler::handle),
     myStatFilterK(20),
     myDataName2("getSensorDataStereoCam2"),
@@ -358,7 +338,7 @@ void SensorDataStereoCamHandler::handle(ArNetPacket *packet)
 
 #ifdef STEREO_CAM_DECOMPRESS
   static unsigned compressed = 0;
-  ArPose localPose(point.x, point.y, th);
+  static TransformInfo localPose(point.x, point.y, th);
   static MyPoint pointTrans;
 #endif
   // create a point using data section of packet
@@ -418,7 +398,7 @@ void SensorDataStereoCamHandler::handle2(ArNetPacket *packet)
 
 #ifdef STEREO_CAM_DECOMPRESS
   static unsigned compressed = 0;
-  static ArPose localPose(point.x, point.y, th);
+  static TransformInfo localPose(point.x, point.y, th);
   static MyPoint pointTrans;
 #endif
   // create a point using data section of packet
