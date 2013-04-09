@@ -88,7 +88,7 @@ int main(int argc, char **argv)
     moveJoyHandler = new MoveJoyHandler(clients, &joyHandler);
   }
 
-  keyVsJoy(moveKeyHandler, moveJoyHandler, clients.size());
+  initControllers(moveKeyHandler, moveJoyHandler, clients.size());
 
   // start all the clients
   startClients(clients);

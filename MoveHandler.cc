@@ -23,15 +23,21 @@ MoveHandler::MoveHandler(std::vector<ArClientBase *> &clients)
   : myClients(clients), myClientIndex(0), myClient(myClients[0]),
     myTransRatio(0), myRotRatio(0), mySpeedLimit(50)
 {
-  // set default modes for clients
-  myModes.push_back(Mode(false, true));
+}
+
+void MoveHandler::setClientIndex(size_t i)
+{
+  if (i < myClients.size()) {
+    myClientIndex = i;
+    myClient = myClients[myClientIndex];
+  }
 }
 
 // send a packet containing velocity values
 void MoveHandler::ratioDrive() 
 { 
   if (!myClient->dataExists("ratioDrive") ||
-      myModes[myClientIndex].myWander) return;
+      (*robotModes)[myClientIndex].myWander) return;
 
   static ArNetPacket packet;
   packet.empty();
@@ -48,9 +54,9 @@ void MoveHandler::ratioDrive()
 void MoveHandler::wander()
 {
   if (!myClient->dataExists("wander") ||
-      myModes[myClientIndex].myWander) return;
+      (*robotModes)[myClientIndex].myWander) return;
 
-  myModes[myClientIndex].myWander = true;
+  (*robotModes)[myClientIndex].myWander = true;
   myClient->requestOnce("wander");
   std::cout << "\t" << myClient->getRobotName() 
     << " wander mode" << std::endl;
@@ -61,7 +67,7 @@ void MoveHandler::stop()
 {
   if (!myClient->dataExists("stop")) return;
   myClient->requestOnce("stop");
-  myModes[myClientIndex].myWander = false;
+  (*robotModes)[myClientIndex].myWander = false;
 }
 
 // alternate between unsafe and safe drive
@@ -69,10 +75,11 @@ void MoveHandler::safeDrive()
 {
   if (!myClient->dataExists("setSafeDrive")) return;
 
-  myModes[myClientIndex].mySafe = !myModes[myClientIndex].mySafe;
+  (*robotModes)[myClientIndex].mySafe = 
+    !(*robotModes)[myClientIndex].mySafe;
 
   ArNetPacket packet;
-  if (myModes[myClientIndex].mySafe) {
+  if ((*robotModes)[myClientIndex].mySafe) {
     packet.byteToBuf(1);
     std::cout << "\t" << myClient->getRobotName() 
       << " safe drive" << std::endl;
@@ -106,7 +113,7 @@ void MoveHandler::wanderAll()
 {
   for (size_t i = 0; i < myClients.size(); i++) {
     myClients[i]->requestOnce("wander");
-    myModes[i].myWander = true;
+    (*robotModes)[i].myWander = true;
   }
 }
 
@@ -115,7 +122,7 @@ void MoveHandler::stopAll()
 {
   for (size_t i = 0; i < myClients.size(); i++) {
     myClients[i]->requestOnce("stop");
-    myModes[i].myWander = false;
+    (*robotModes)[i].myWander = false;
   }
 }
 
@@ -251,7 +258,7 @@ void MoveJoyHandler::update()
 {
   if (myJoyHandler->getButton(1)) ratioDrive();
   else {
-    if (!myModes[myClientIndex].myWander) {
+    if (!(*robotModes)[myClientIndex].myWander) {
       myTransRatio = 0;
       myRotRatio = 0;
       MoveHandler::ratioDrive();
@@ -350,22 +357,22 @@ std::string moveKeyToString(int c)
   return keyName;
 }
 
-// Warn about keyboard and joystick conflicts
-void keyVsJoy(MoveHandler *&key, MoveHandler *&joy, int nClients)
+// @func: Creates a list of robot modes and passes a pointer to that list
+//   to each move handler. 
+void initControllers(MoveHandler *&key, MoveHandler *&joy, int nClients)
 {
-  // if there is only one client, use only one controller
-  // default is to use joystick
-  if (nClients == 1) {
-    if (joy) {
-      joy->displayKeys();
-      delete key;
-      key = NULL;
-    }
-    else key->displayKeys();
+  std::vector<Mode> *modes = new std::vector<Mode>;
+  for (int i = 0; i < nClients; i++) {
+    modes->push_back(Mode(false, true));
   }
-  else {
-    if (joy) joy->displayKeys();
-    key->displayKeys();
-    printTitle("DO NOT CONTROL SAME ROBOT WITH KEYBOARD AND JOYSTICK");
+
+  key->displayKeys();
+  key->robotModes = modes;
+  if (joy) {
+    joy->displayKeys();
+    joy->robotModes = modes;
+    if (nClients > 1) key->setClientIndex(1);
   }
+
+  printTitle("DO NOT CONTROL SAME ROBOT WITH KEYBOARD AND JOYSTICK");
 }

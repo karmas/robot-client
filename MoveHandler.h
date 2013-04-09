@@ -3,20 +3,24 @@
 
 #include "ArNetworking.h"
 
+// Holds robot servers state information
+struct Mode {
+  Mode(bool w, bool s)
+    : myWander(w), mySafe(s) { }
+  bool myWander;
+  bool mySafe;
+};
+
+
 // Abstract base class to provide an interface for
 // moving client robots
 class MoveHandler {
 public:
-  // Holds robot servers state information
-  struct Mode {
-    Mode(bool w, bool s)
-      : myWander(w), mySafe(s) { }
-    bool myWander;
-    bool mySafe;
-  };
-
   virtual void update() = 0;
   virtual void displayKeys() = 0;
+  void setClientIndex(size_t i);
+
+  std::vector<Mode> *robotModes;
 
 protected:
   MoveHandler(std::vector<ArClientBase *> &clients);
@@ -37,7 +41,6 @@ protected:
   double myTransRatio;
   double myRotRatio;
   double mySpeedLimit;
-  std::vector<Mode> myModes;
 };
 
 // Move using keyboard
@@ -96,7 +99,7 @@ private:
 void defaultMoveKeys(std::vector<int> &moveKeys, 
     std::vector<std::string> &moveKeysInfo);
 std::string moveKeyToString(int c);
-void keyVsJoy(MoveHandler *&key, MoveHandler *&joy, int nClients);
+void initControllers(MoveHandler *&key, MoveHandler *&joy, int nClients);
 
 
 #endif
